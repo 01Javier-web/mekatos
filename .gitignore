@@ -22,3 +22,33 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Composer dependencies
+/vendor/
+/composer.lock
+# Environment variables
+env
+# PHPStorm project files
+idea/
+# Laravel specific
+/storage/
+bootstrap/cache/
+# Logs and temporary files
+*.log
+*.cache
+*.tmp
+# PHPUnit results
+phpunit.result.cache
+# OS-specific files
+DS_Store
+Thumbs.db
+# Node modules (if using frontend tools)
+node_modules/
+# Backup and hidden files
+*.bak
+*.swp
+*~
+# SASS cache files
+sass-cache/
+# Generated code coverage reports
+coverage/
