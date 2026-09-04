@@ -3,8 +3,15 @@
 namespace App\Http\Controllers\Web\Admin;
 
 use App\Enums\OrderStatus;
+use App\Enums\OrderType;
 use App\Http\Controllers\Controller;
+use App\Models\Category;
 use App\Models\Order;
+use App\Models\Product;
+use App\Models\RestaurantTable;
+use App\Models\TableSession;
+use App\TableSessionStatus;
+use App\TableStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +35,124 @@ class OrderController extends Controller
             'statuses' => OrderStatus::cases(),
             'selectedStatus' => $request->status,
         ]);
+    }
+
+    public function create(): View
+    {
+        return view('admin.orders.create', [
+            'products' => Product::query()->with('category')->where('is_available', true)->orderBy('name')->get(),
+            'tables' => RestaurantTable::query()->where('status', '!=', TableStatus::CLEANING->value)->orderBy('number')->get(),
+            'categories' => Category::query()->orderBy('name')->get(),
+            'orderTypes' => OrderType::cases(),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'type' => ['required', Rule::enum(OrderType::class)],
+            'table_id' => ['nullable', 'integer', 'exists:restaurant_tables,id'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*' => ['required', 'integer', 'min:1'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $type = OrderType::from($validated['type']);
+
+        if ($type === OrderType::TABLE && empty($validated['table_id'])) {
+            throw ValidationException::withMessages([
+                'table_id' => ['Selecciona una mesa para un pedido en mesa.'],
+            ]);
+        }
+
+        if ($type === OrderType::TAKEAWAY && ! empty($validated['table_id'])) {
+            throw ValidationException::withMessages([
+                'table_id' => ['Un pedido para llevar no puede tener una mesa asociada.'],
+            ]);
+        }
+
+        $order = DB::transaction(function () use ($validated, $type) {
+            $tableSession = null;
+
+            if ($type === OrderType::TABLE) {
+                $table = RestaurantTable::query()->lockForUpdate()->findOrFail($validated['table_id']);
+
+                if ($table->status === TableStatus::CLEANING) {
+                    throw ValidationException::withMessages([
+                        'table_id' => ['La mesa seleccionada no está disponible para recibir pedidos.'],
+                    ]);
+                }
+
+                $tableSession = TableSession::query()
+                    ->where('restaurant_table_id', $table->id)
+                    ->where('status', TableSessionStatus::Active->value)
+                    ->latest('id')
+                    ->first();
+
+                if (! $tableSession) {
+                    $tableSession = TableSession::create([
+                        'restaurant_table_id' => $table->id,
+                        'status' => TableSessionStatus::Active,
+                        'started_at' => now(),
+                    ]);
+                }
+
+                $table->update(['status' => TableStatus::OCCUPIED]);
+            }
+
+            $order = Order::create([
+                'table_session_id' => $tableSession?->id,
+                'type' => $type,
+                'status' => OrderStatus::PENDING,
+                'subtotal' => 0,
+                'tax' => 0,
+                'total' => 0,
+                'notes' => $validated['notes'] ?? null,
+                'handled_by_user_id' => Auth::id(),
+            ]);
+
+            $subtotal = 0;
+
+            foreach ($validated['items'] as $productId => $quantity) {
+                $product = Product::query()->findOrFail($productId);
+
+                if (! $product->is_available) {
+                    throw ValidationException::withMessages([
+                        'items' => ["El producto '{$product->name}' no está disponible."],
+                    ]);
+                }
+
+                $lineTotal = $product->price * $quantity;
+
+                $order->orderItems()->create([
+                    'product_id' => $product->id,
+                    'quantity' => $quantity,
+                    'unit_price' => $product->price,
+                    'total' => $lineTotal,
+                ]);
+
+                $subtotal += $lineTotal;
+            }
+
+            $order->update([
+                'subtotal' => $subtotal,
+                'tax' => 0,
+                'total' => $subtotal,
+            ]);
+
+            $order->statusHistories()->create([
+                'previous_status' => null,
+                'new_status' => OrderStatus::PENDING->value,
+                'changed_by_user_id' => Auth::id(),
+                'changed_at' => now(),
+            ]);
+
+            return $order;
+        });
+
+        $route = Auth::user()?->role?->value === 'MESERO' ? 'waiter.orders' : 'admin.orders.show';
+
+        return redirect()->route($route, $route === 'admin.orders.show' ? $order : [])->with('success', "Pedido #{$order->id} creado y enviado a cocina.");
     }
 
     public function show(Order $order): View
