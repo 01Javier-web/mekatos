@@ -45,10 +45,15 @@ class Order extends Model
     {
         return $this->belongsTo(User::class, 'delivered_by_user_id');
     }
-    protected function casts (): array
+
+    protected function casts(): array
     {
         return [
             'status' => OrderStatus::class,
+            'delivered_at' => 'datetime',
+            'subtotal' => 'decimal:2',
+            'tax' => 'decimal:2',
+            'total' => 'decimal:2',
         ];
     }
 }
