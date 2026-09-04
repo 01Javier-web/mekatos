@@ -5,19 +5,17 @@
     <div class="page-heading"><div><span class="eyebrow">Operación</span><h2>Pedido #{{ $order->id }}</h2><p>{{ $order->type?->value === 'PARA_LLEVAR' ? '🥡 Para llevar' : '🪑 Mesa '.($order->tableSession?->restaurantTable?->number ?? '—') }} · {{ $order->created_at?->format('d/m/Y H:i') }}</p></div><a class="button" href="{{ route('admin.orders.index') }}">← Volver a pedidos</a></div>
     @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if ($errors->any())<div class="alert alert-error"><strong>No se pudo actualizar el pedido.</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-
     <section class="order-status-banner status-banner-{{ strtolower($order->status->value) }}">
         <div><span class="eyebrow">Estado actual</span><strong>{{ $order->status->value }}</strong><small>{{ match($order->status->value){'PENDIENTE'=>'El pedido está esperando que cocina lo tome.','PREPARANDO'=>'Cocina está preparando este pedido.','LISTO'=>'El pedido está listo para ser entregado.','ENTREGADO'=>'El pedido ya fue entregado.','CANCELADO'=>'Este pedido fue cancelado.'} }}</small></div>
         <div class="order-progress" aria-label="Progreso del pedido"><span class="{{ in_array($order->status->value,['PENDIENTE','PREPARANDO','LISTO','ENTREGADO'])?'done':'' }}">1</span><i></i><span class="{{ in_array($order->status->value,['PREPARANDO','LISTO','ENTREGADO'])?'done':'' }}">2</span><i></i><span class="{{ in_array($order->status->value,['LISTO','ENTREGADO'])?'done':'' }}">3</span><i></i><span class="{{ $order->status->value==='ENTREGADO'?'done':'' }}">4</span></div>
     </section>
-
     <div class="order-detail-grid">
         <section class="panel"><div class="panel-header"><h3>Estado del pedido</h3><span>Gestiona el siguiente paso de la operación.</span></div><div class="detail-body">
             @if (auth()->user()->role->value === 'ADMIN')
                 @php $nextStatuses = match($order->status) { \App\Enums\OrderStatus::PENDING => [\App\Enums\OrderStatus::PREPARING,\App\Enums\OrderStatus::CANCELLED], \App\Enums\OrderStatus::PREPARING => [\App\Enums\OrderStatus::READY,\App\Enums\OrderStatus::CANCELLED], default => [] }; @endphp
                 @if(count($nextStatuses))<form method="POST" action="{{ route('admin.orders.status',$order) }}" class="status-form">@csrf @method('PUT')<label><span>Siguiente estado</span><select name="status">@foreach($nextStatuses as $status)<option value="{{ $status->value }}">{{ $status->value }}</option>@endforeach</select></label><button class="button button-primary" type="submit">Actualizar estado</button></form>@else<p class="muted">Este pedido no tiene más cambios de estado disponibles.</p>@endif
             @endif
-            @if ($order->status->value === 'LISTO' && in_array(auth()->user()->role->value,['ADMIN','MESERO'],true))<form method="POST" action="{{ route('admin.orders.deliver',$order) }}"><button class="button button-primary" type="submit">Marcar como entregado</button></form>@endif
+            @if ($order->status->value === 'LISTO' && in_array(auth()->user()->role->value,['ADMIN','MESERO'],true))<form method="POST" action="{{ route('admin.orders.deliver',$order) }}">@csrf @method('PUT')<button class="button button-primary" type="submit">Marcar como entregado</button></form>@endif
             <div class="order-meta"><div><span>Creado por</span><strong>{{ $order->handledBy?->name ?? 'Pedido QR' }}</strong></div><div><span>Tipo</span><strong>{{ $order->type?->value === 'PARA_LLEVAR' ? 'Para llevar' : 'En mesa' }}</strong></div></div>
             @if ($order->delivered_at)<p class="muted">Entregado el {{ $order->delivered_at->format('d/m/Y H:i') }}{{ $order->deliveredBy ? ' por '.$order->deliveredBy->name : '' }}.</p>@endif
         </div></section>
