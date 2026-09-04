@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\ClientController;
+use App\Http\Controllers\Web\WaiterController;
 use App\Http\Controllers\Web\Admin\DashboardController;
 use App\Http\Controllers\Web\Admin\OrderController;
 use App\Http\Controllers\Web\Admin\CategoryController;
@@ -19,8 +20,11 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 Route::get('/mesa/{token}', [ClientController::class, 'table'])->name('client.table');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware('role:ADMIN')->name('admin.dashboard');
+    Route::get('/waiter/orders', [WaiterController::class, 'index'])
+        ->middleware('role:MESERO')
+        ->name('waiter.orders');
 
+    Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware('role:ADMIN')->name('admin.dashboard');
     Route::get('/admin/orders', [OrderController::class, 'index'])->name('admin.orders.index');
     Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->name('admin.orders.show');
     Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:ADMIN')->name('admin.orders.status');
