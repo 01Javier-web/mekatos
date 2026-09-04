@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Web\AuthController;
+use App\Http\Controllers\Web\ClientController;
 use App\Http\Controllers\Web\Admin\DashboardController;
 use App\Http\Controllers\Web\Admin\OrderController;
 use App\Http\Controllers\Web\Admin\CategoryController;
@@ -10,26 +11,20 @@ use App\Http\Controllers\Web\Admin\TableController;
 use App\Http\Controllers\Web\Admin\UserController;
 
 Route::get('/', fn () => redirect()->route('login'));
-
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.store');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-Route::middleware('auth')->group(function () {
-    Route::get('/admin/dashboard', [DashboardController::class, 'index'])
-        ->middleware('role:ADMIN')
-        ->name('admin.dashboard');
+// Acceso público desde el QR de cada mesa.
+Route::get('/mesa/{token}', [ClientController::class, 'table'])->name('client.table');
 
-    Route::get('/admin/orders', [OrderController::class, 'index'])
-        ->name('admin.orders.index');
-    Route::get('/admin/orders/{order}', [OrderController::class, 'show'])
-        ->name('admin.orders.show');
-    Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])
-        ->middleware('role:ADMIN')
-        ->name('admin.orders.status');
-    Route::put('/admin/orders/{order}/deliver', [OrderController::class, 'deliver'])
-        ->middleware('role:ADMIN,MESERO')
-        ->name('admin.orders.deliver');
+Route::middleware('auth')->group(function () {
+    Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware('role:ADMIN')->name('admin.dashboard');
+
+    Route::get('/admin/orders', [OrderController::class, 'index'])->name('admin.orders.index');
+    Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->name('admin.orders.show');
+    Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:ADMIN')->name('admin.orders.status');
+    Route::put('/admin/orders/{order}/deliver', [OrderController::class, 'deliver'])->middleware('role:ADMIN,MESERO')->name('admin.orders.deliver');
 
     Route::middleware('role:ADMIN')->group(function () {
         Route::get('/admin/categories', [CategoryController::class, 'index'])->name('admin.categories.index');
