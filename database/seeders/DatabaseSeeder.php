@@ -27,5 +27,7 @@ class DatabaseSeeder extends Seeder
             'role' => UserRole::Admin,
             'is_active' => true,
         ])->save();
+
+        $this->call(MekatosMenuSeeder::class);
     }
 }
