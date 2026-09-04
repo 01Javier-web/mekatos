@@ -1,41 +1,25 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-use App\UserRole;
 
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * The role column is part of the original users table schema.
+     * This migration is intentionally kept as a no-op for compatibility
+     * with databases where it may already have been recorded.
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            // Rol interno del usuario.
-            //
-            // Por seguridad no recomiendo que ADMIN
-            // sea el default.
-            $table->string('role')
-                ->default(UserRole::Waiter->value)
-                ->after('password');
-        });
+        // Intentionally empty.
     }
 
     /**
-     * Reverse the migrations.
+     * The role column belongs to the users table and must not be removed
+     * independently by this compatibility migration.
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            // Rol interno del usuario.
-            //
-            // Por seguridad no recomiendo que ADMIN
-            // sea el default.
-            Schema::table('users', function (Blueprint $table) {
-                $table->dropColumn('role');
-            });
-        });
+        // Intentionally empty.
     }
 };
