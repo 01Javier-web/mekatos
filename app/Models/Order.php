@@ -6,11 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Enums\OrderStatus;
+use App\Enums\OrderType;
 
 class Order extends Model
 {
     protected $fillable = [
         'table_session_id',
+        'type',
         'status',
         'subtotal',
         'tax',
@@ -49,6 +51,7 @@ class Order extends Model
     protected function casts(): array
     {
         return [
+            'type' => OrderType::class,
             'status' => OrderStatus::class,
             'delivered_at' => 'datetime',
             'subtotal' => 'decimal:2',
