@@ -16,7 +16,7 @@ class TableController extends Controller
     public function index(): View
     {
         return view('admin.tables.index', [
-            'tables' => RestaurantTable::query()->with(['tableSessions' => fn ($query) => $query->latest('id')->limit(1)])->orderBy('number')->get(),
+            'tables' => RestaurantTable::query()->orderBy('number')->get(),
         ]);
     }
 
