@@ -24,6 +24,14 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:MESERO')
         ->name('waiter.orders');
 
+    // Creación manual de pedidos desde caja por ADMIN o MESERO.
+    Route::get('/admin/orders/create', [OrderController::class, 'create'])
+        ->middleware('role:ADMIN,MESERO')
+        ->name('admin.orders.create');
+    Route::post('/admin/orders', [OrderController::class, 'store'])
+        ->middleware('role:ADMIN,MESERO')
+        ->name('admin.orders.store');
+
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware('role:ADMIN')->name('admin.dashboard');
     Route::get('/admin/orders', [OrderController::class, 'index'])->name('admin.orders.index');
     Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->name('admin.orders.show');
