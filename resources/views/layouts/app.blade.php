@@ -2,38 +2,26 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>
-        @yield('title', 'Restaurant')
-    </title>
-
-    {{-- CSS servido directamente desde /public --}}
-    <link
-        rel="stylesheet"
-        href="{{ asset('css/app.css') }}"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@yield('title', 'Mekatos')</title>
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
-
 <body>
-
-    <header>
-        <h1>Restaurant Ordering</h1>
+    <header class="main-header">
+        <div class="header-inner">
+            <a class="brand" href="{{ route('admin.orders.index') }}">Mekatos</a>
+            <nav class="main-nav" aria-label="Navegación principal">
+                <a href="{{ route('admin.orders.index') }}">Pedidos</a>
+                <a href="{{ route('admin.categories.index') }}">Categorías</a>
+                <a href="{{ route('admin.products.index') }}">Productos</a>
+            </nav>
+        </div>
     </header>
 
     <main>
         @yield('content')
     </main>
 
-    {{-- JavaScript tradicional, sin Vite --}}
-    <script
-        src="{{ asset('js/app.js') }}"
-        defer
-    ></script>
-
+    <script src="{{ asset('js/app.js') }}" defer></script>
 </body>
 </html>
