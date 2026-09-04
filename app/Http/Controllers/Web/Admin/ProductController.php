@@ -15,6 +15,7 @@ class ProductController extends Controller
     {
         return view('admin.products.index', [
             'products' => Product::query()->with('category')->latest()->get(),
+            'categories' => Category::query()->orderBy('name')->get(),
         ]);
     }
 
