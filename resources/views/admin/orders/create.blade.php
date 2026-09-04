@@ -2,89 +2,52 @@
 @section('title', 'Nuevo pedido | Mekatos')
 @section('content')
 <div class="page-shell">
-    <div class="page-heading">
-        <div>
-            <span class="eyebrow">Operación</span>
-            <h2>Nuevo pedido</h2>
-            <p>Crea un pedido desde caja o desde el panel del mesero.</p>
-        </div>
-        <a class="button" href="{{ auth()->user()?->role?->value === 'MESERO' ? route('waiter.orders') : route('admin.orders.index') }}">Volver</a>
-    </div>
+    <div class="page-heading"><div><span class="eyebrow">Operación</span><h2>Nuevo pedido</h2><p>Arma el pedido rápidamente desde caja o desde el panel del mesero.</p></div><a class="button" href="{{ auth()->user()?->role?->value === 'MESERO' ? route('waiter.orders') : route('admin.orders.index') }}">Volver</a></div>
+    @if ($errors->any())<div class="alert alert-error"><strong>Revisa el pedido antes de continuar.</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 
-    @if ($errors->any())
-        <div class="alert alert-error"><strong>Revisa el pedido.</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
-    @endif
-
-    <form method="POST" action="{{ route('admin.orders.store') }}" id="manual-order-form">
+    <form method="POST" action="{{ route('admin.orders.store') }}" id="manual-order-form" class="manual-order-form">
         @csrf
-        <div class="panel" style="margin-bottom:20px;">
-            <div class="panel-header"><div><h3>1. Tipo de pedido</h3><span>Indica cómo se atenderá el cliente.</span></div></div>
+        <section class="panel order-step">
+            <div class="panel-header"><div><span class="step-number">1</span><h3>Tipo de pedido</h3><span>Indica cómo se atenderá el cliente.</span></div></div>
             <div class="order-type-grid">
-                <label class="order-type-option"><input type="radio" name="type" value="MESA" {{ old('type', 'MESA') === 'MESA' ? 'checked' : '' }}><span><strong>🪑 En mesa</strong><small>El pedido queda asociado a una mesa.</small></span></label>
-                <label class="order-type-option"><input type="radio" name="type" value="PARA_LLEVAR" {{ old('type') === 'PARA_LLEVAR' ? 'checked' : '' }}><span><strong>🥡 Para llevar</strong><small>No requiere mesa ni sesión de mesa.</small></span></label>
+                <label class="order-type-option"><input type="radio" name="type" value="MESA" {{ old('type','MESA') === 'MESA' ? 'checked' : '' }}><span><strong>🪑 En mesa</strong><small>Asocia el pedido a una mesa del restaurante.</small></span></label>
+                <label class="order-type-option"><input type="radio" name="type" value="PARA_LLEVAR" {{ old('type') === 'PARA_LLEVAR' ? 'checked' : '' }}><span><strong>🥡 Para llevar</strong><small>No ocupa ni requiere una mesa.</small></span></label>
             </div>
-            <div id="table-field" style="margin-top:18px;">
-                <label for="table_id">Mesa</label>
-                <select id="table_id" name="table_id">
-                    <option value="">Selecciona una mesa</option>
-                    @foreach ($tables as $table)
-                        <option value="{{ $table->id }}" {{ (string) old('table_id') === (string) $table->id ? 'selected' : '' }}>Mesa {{ $table->number }}{{ $table->name ? ' · '.$table->name : '' }}</option>
-                    @endforeach
-                </select>
+            <div id="table-field" class="table-field">
+                <label for="table_id"><span>Mesa</span><select id="table_id" name="table_id"><option value="">Selecciona una mesa</option>@foreach ($tables as $table)<option value="{{ $table->id }}" {{ (string)old('table_id')===(string)$table->id?'selected':'' }}>Mesa {{ $table->number }}{{ $table->name?' · '.$table->name:'' }}</option>@endforeach</select></label>
             </div>
-        </div>
+        </section>
 
-        <div class="panel" style="margin-bottom:20px;">
-            <div class="panel-header"><div><h3>2. Productos</h3><span>Agrega los productos disponibles.</span></div><strong id="items-count">0 productos</strong></div>
-            <div class="manual-product-grid">
+        <section class="panel order-step">
+            <div class="panel-header order-toolbar"><div><span class="step-number">2</span><h3>Productos</h3><span id="items-count">0 productos seleccionados</span></div><div class="product-tools"><input id="product-search" type="search" placeholder="Buscar producto..." aria-label="Buscar producto"><select id="category-filter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option>@foreach ($categories as $category)<option value="{{ $category->id }}">{{ $category->name }}</option>@endforeach</select></div></div>
+            <div class="manual-product-grid" id="product-grid">
                 @forelse ($products as $product)
-                    <article class="manual-product-card">
+                    <article class="manual-product-card" data-name="{{ strtolower($product->name.' '.($product->description??'')) }}" data-category="{{ $product->category_id }}">
                         <div><span class="eyebrow">{{ $product->category?->name ?? 'Menú' }}</span><h3>{{ $product->name }}</h3>@if($product->description)<p>{{ $product->description }}</p>@endif</div>
-                        <div class="manual-product-bottom"><strong>${{ number_format($product->price, 0, ',', '.') }}</strong><div class="qty-control"><button type="button" data-action="minus" data-id="{{ $product->id }}">−</button><input type="number" name="items[{{ $product->id }}]" value="{{ old('items.'.$product->id, 0) }}" min="0" max="99" data-price="{{ $product->price }}" data-name="{{ $product->name }}" readonly><button type="button" data-action="plus" data-id="{{ $product->id }}">+</button></div></div>
+                        <div class="manual-product-bottom"><strong>${{ number_format($product->price,0,',','.') }}</strong><div class="qty-control"><button type="button" data-action="minus" data-id="{{ $product->id }}" aria-label="Reducir {{ $product->name }}">−</button><input type="number" name="items[{{ $product->id }}]" value="{{ old('items.'.$product->id,0) }}" min="0" max="99" data-price="{{ $product->price }}" data-name="{{ $product->name }}" readonly><button type="button" data-action="plus" data-id="{{ $product->id }}" aria-label="Aumentar {{ $product->name }}">+</button></div></div>
                     </article>
-                @empty
-                    <div class="empty-state" style="grid-column:1/-1;">No hay productos disponibles.</div>
-                @endforelse
+                @empty<div class="empty-state" style="grid-column:1/-1">No hay productos disponibles.</div>@endforelse
             </div>
-        </div>
+            <div id="products-empty" class="empty-state" hidden>No encontramos productos con esos filtros.</div>
+        </section>
 
-        <div class="panel">
-            <div class="panel-header"><div><h3>3. Confirmar</h3><span>Revisa el pedido antes de enviarlo a cocina.</span></div></div>
-            <label for="notes">Notas</label>
-            <textarea id="notes" name="notes" rows="3" maxlength="2000" placeholder="Ej. Sin cebolla, recoger en 15 minutos...">{{ old('notes') }}</textarea>
+        <section class="panel order-step">
+            <div class="panel-header"><div><span class="step-number">3</span><h3>Revisar y crear</h3><span>Verifica cantidades y agrega una nota si hace falta.</span></div></div>
+            <label for="notes"><span>Notas para cocina</span><textarea id="notes" name="notes" rows="3" maxlength="2000" placeholder="Ej. Sin cebolla, poco picante, recoger en 15 minutos...">{{ old('notes') }}</textarea></label>
             <div id="order-summary" class="manual-order-summary"><p>Agrega productos para ver el resumen.</p></div>
-            <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:18px;"><a class="button" href="{{ auth()->user()?->role?->value === 'MESERO' ? route('waiter.orders') : route('admin.orders.index') }}">Cancelar</a><button class="button button-primary" type="submit" id="submit-order" disabled>Crear pedido</button></div>
-        </div>
+            <div class="form-actions"><a class="button" href="{{ auth()->user()?->role?->value === 'MESERO' ? route('waiter.orders') : route('admin.orders.index') }}">Cancelar</a><button class="button button-primary" type="submit" id="submit-order" disabled>Crear pedido</button></div>
+        </section>
     </form>
 </div>
-
 <style>
-.order-type-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.order-type-option{display:flex;gap:12px;align-items:flex-start;padding:18px;border:1px solid #e5e7eb;border-radius:12px;cursor:pointer}.order-type-option:has(input:checked){border-color:#111827;box-shadow:0 0 0 2px rgba(17,24,39,.08)}.order-type-option input{margin-top:4px}.order-type-option strong,.order-type-option small{display:block}.order-type-option small{color:#6b7280;margin-top:5px}.manual-product-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.manual-product-card{border:1px solid #e5e7eb;border-radius:12px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;gap:18px}.manual-product-card h3{margin:5px 0}.manual-product-card p{color:#6b7280;font-size:.9rem;margin:0}.manual-product-bottom{display:flex;justify-content:space-between;align-items:center;gap:10px}.qty-control{display:flex;align-items:center;border:1px solid #d1d5db;border-radius:9px;overflow:hidden}.qty-control button{border:0;background:#f3f4f6;width:34px;height:34px;font-size:20px;cursor:pointer}.qty-control input{border:0;text-align:center;width:38px;height:34px;background:#fff}.manual-order-summary{margin-top:16px;padding:16px;background:#f9fafb;border-radius:12px}.summary-line{display:flex;justify-content:space-between;gap:12px;padding:7px 0}.summary-total{display:flex;justify-content:space-between;border-top:1px solid #e5e7eb;margin-top:8px;padding-top:12px;font-size:1.1rem}.manual-order-summary p{margin:0;color:#6b7280}@media(max-width:850px){.manual-product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.order-type-grid,.manual-product-grid{grid-template-columns:1fr}}
+.order-step{margin-bottom:20px}.step-number{float:left;width:27px;height:27px;margin-right:9px;display:grid;place-items:center;border-radius:50%;background:#171717;color:#fff;font-size:.75rem;font-weight:800}.order-type-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:20px 22px 0}.order-type-option{display:flex;gap:12px;align-items:flex-start;padding:17px;border:1px solid #e3e3e0;border-radius:12px;cursor:pointer}.order-type-option:has(input:checked){border-color:#171717;box-shadow:0 0 0 2px rgba(23,23,23,.08)}.order-type-option input{margin-top:4px}.order-type-option strong,.order-type-option small{display:block}.order-type-option small{color:#777;margin-top:4px}.table-field{padding:0 22px;margin-top:18px}.table-field label>span{display:block;margin-bottom:7px;font-weight:750}.table-field select{width:100%;padding:11px 12px;border:1px solid #d6d6d3;border-radius:9px;background:#fff}.order-toolbar{display:flex;align-items:center;justify-content:space-between;gap:18px}.product-tools{display:flex;gap:8px}.product-tools input,.product-tools select{min-height:38px;padding:8px 10px;border:1px solid #d6d6d3;border-radius:8px;background:#fff}.product-tools input{width:220px}.manual-product-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:20px 22px}.manual-product-card{border:1px solid #e5e5e2;border-radius:12px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;gap:18px;min-height:190px}.manual-product-card[hidden]{display:none}.manual-product-card h3{margin:5px 0 6px;font-size:1rem}.manual-product-card p{color:#777;font-size:.86rem;margin:0}.manual-product-bottom{display:flex;justify-content:space-between;align-items:center;gap:10px}.qty-control{display:flex;align-items:center;border:1px solid #d1d1ce;border-radius:9px;overflow:hidden}.qty-control button{border:0;background:#f3f3f1;width:35px;height:35px;font-size:20px}.qty-control button:hover{background:#e9e9e6}.qty-control input{border:0;text-align:center;width:38px;height:35px;background:#fff}.manual-order-summary{margin:0 22px 20px;padding:16px;background:#f8f8f6;border:1px solid #e7e7e4;border-radius:12px}.summary-line{display:flex;justify-content:space-between;gap:12px;padding:7px 0}.summary-total{display:flex;justify-content:space-between;border-top:1px solid #ddd;margin-top:8px;padding-top:13px;font-size:1.12rem}.manual-order-form>section:last-child{padding-bottom:22px}.manual-order-form>section:last-child>label{display:block;margin:20px 22px 0;font-weight:750}.manual-order-form>section:last-child>label>span{display:block;margin-bottom:7px}.manual-order-form textarea{display:block}.manual-order-form .form-actions{padding:0 22px}.manual-order-summary p{margin:0;color:#777}.products-empty{padding:25px}@media(max-width:900px){.manual-product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.order-toolbar{align-items:stretch;flex-direction:column}.product-tools input{flex:1;width:auto}}@media(max-width:600px){.order-type-grid,.manual-product-grid{grid-template-columns:1fr}.product-tools{flex-direction:column}.product-tools input,.product-tools select{width:100%}}
 </style>
 <script>
-const form = document.getElementById('manual-order-form');
-const tableField = document.getElementById('table-field');
-const tableSelect = document.getElementById('table_id');
-const summary = document.getElementById('order-summary');
-const submit = document.getElementById('submit-order');
-const count = document.getElementById('items-count');
-const money = value => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(value);
-
-function refreshSummary(){
-    let total=0, units=0, lines=[];
-    document.querySelectorAll('.qty-control input').forEach(input=>{
-        const qty=Number(input.value)||0;
-        if(qty>0){ const subtotal=qty*Number(input.dataset.price); total+=subtotal; units+=qty; lines.push(`<div class="summary-line"><span>${qty}× ${input.dataset.name}</span><strong>${money(subtotal)}</strong></div>`); }
-    });
-    count.textContent=`${units} ${units===1?'producto':'productos'}`;
-    submit.disabled=units===0;
-    summary.innerHTML=units===0?'<p>Agrega productos para ver el resumen.</p>':`${lines.join('')}<div class="summary-total"><strong>Total</strong><strong>${money(total)}</strong></div>`;
-}
-
-document.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>{ const input=document.querySelector(`input[name="items[${button.dataset.id}]"]`); let value=Number(input.value)||0; value=button.dataset.action==='plus'?Math.min(99,value+1):Math.max(0,value-1); input.value=value; refreshSummary(); }));
-document.querySelectorAll('input[name="type"]').forEach(radio=>radio.addEventListener('change',()=>{ const isTable=document.querySelector('input[name="type"]:checked').value==='MESA'; tableField.hidden=!isTable; if(!isTable)tableSelect.value=''; }));
-form.addEventListener('submit',()=>{ submit.disabled=true; submit.textContent='Creando pedido...'; });
-tableField.hidden=document.querySelector('input[name="type"]:checked').value!=='MESA';
-refreshSummary();
+const form=document.getElementById('manual-order-form'),tableField=document.getElementById('table-field'),tableSelect=document.getElementById('table_id'),summary=document.getElementById('order-summary'),submit=document.getElementById('submit-order'),count=document.getElementById('items-count'),search=document.getElementById('product-search'),category=document.getElementById('category-filter'),empty=document.getElementById('products-empty');
+const money=v=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(v);
+function refreshSummary(){let total=0,units=0,lines=[];document.querySelectorAll('.qty-control input').forEach(input=>{const qty=Number(input.value)||0;if(qty>0){const subtotal=qty*Number(input.dataset.price);total+=subtotal;units+=qty;lines.push(`<div class="summary-line"><span>${qty}× ${input.dataset.name}</span><strong>${money(subtotal)}</strong></div>`);}});count.textContent=`${units} ${units===1?'producto':'productos'} seleccionado${units===1?'':'s'}`;submit.disabled=units===0;summary.innerHTML=units===0?'<p>Agrega productos para ver el resumen.</p>':`${lines.join('')}<div class="summary-total"><strong>Total</strong><strong>${money(total)}</strong></div>`;}
+function filterProducts(){const q=search.value.trim().toLowerCase(),cat=category.value;let shown=0;document.querySelectorAll('.manual-product-card').forEach(card=>{const hit=(!q||card.dataset.name.includes(q))&&(!cat||card.dataset.category===cat);card.hidden=!hit;if(hit)shown++;});empty.hidden=shown!==0;}
+document.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>{const input=document.querySelector(`input[name="items[${button.dataset.id}]"]`);let value=Number(input.value)||0;value=button.dataset.action==='plus'?Math.min(99,value+1):Math.max(0,value-1);input.value=value;refreshSummary();}));
+document.querySelectorAll('input[name="type"]').forEach(radio=>radio.addEventListener('change',()=>{const isTable=document.querySelector('input[name="type"]:checked').value==='MESA';tableField.hidden=!isTable;if(!isTable)tableSelect.value='';}));search.addEventListener('input',filterProducts);category.addEventListener('change',filterProducts);form.addEventListener('submit',()=>{submit.disabled=true;submit.textContent='Creando pedido...'});tableField.hidden=document.querySelector('input[name="type"]:checked').value!=='MESA';refreshSummary();filterProducts();
 </script>
 @endsection
