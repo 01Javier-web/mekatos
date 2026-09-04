@@ -79,6 +79,10 @@ class OrderController extends Controller
             ]);
         });
 
+        if (Auth::user()?->role?->value === 'MESERO') {
+            return redirect()->route('waiter.orders')->with('success', "Pedido #{$order->id} actualizado a {$newStatus->value}.");
+        }
+
         return redirect()->route('admin.orders.show', $order)->with('success', 'Estado del pedido actualizado exitosamente.');
     }
 
@@ -107,6 +111,8 @@ class OrderController extends Controller
             ]);
         });
 
-        return redirect()->route('admin.orders.show', $order)->with('success', 'Pedido entregado exitosamente.');
+        $route = Auth::user()?->role?->value === 'MESERO' ? 'waiter.orders' : 'admin.orders.show';
+
+        return redirect()->route($route, $route === 'admin.orders.show' ? $order : [])->with('success', 'Pedido entregado exitosamente.');
     }
 }
