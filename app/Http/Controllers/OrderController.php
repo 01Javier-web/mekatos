@@ -6,7 +6,6 @@ use App\Enums\OrderStatus;
 use App\Enums\OrderType;
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\RestaurantTable;
 use App\Models\TableSession;
 use App\TableSessionStatus;
 use Illuminate\Http\JsonResponse;
@@ -57,23 +56,11 @@ class OrderController extends Controller
         }
 
         $order = DB::transaction(function () use ($validatedData, $type, $tableSessionId) {
-            $order = Order::create([
-                'table_session_id' => $tableSessionId,
-                'type' => $type,
-                'status' => OrderStatus::PENDING,
-                'subtotal' => 0,
-                'tax' => 0,
-                'total' => 0,
-                'notes' => $validatedData['notes'] ?? null,
-                'handled_by_user_id' => Auth::id(),
-            ]);
-
+            $order = Order::create(['table_session_id' => $tableSessionId, 'type' => $type, 'status' => OrderStatus::PENDING, 'subtotal' => 0, 'tax' => 0, 'total' => 0, 'notes' => $validatedData['notes'] ?? null, 'handled_by_user_id' => Auth::id()]);
             $subtotal = 0;
             foreach ($validatedData['items'] as $item) {
                 $product = Product::query()->findOrFail($item['product_id']);
-                if (! $product->is_available) {
-                    throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no está disponible."]]);
-                }
+                if (! $product->is_available) throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no está disponible."]]);
                 $lineTotal = $product->price * $item['quantity'];
                 $order->orderItems()->create(['product_id' => $product->id, 'quantity' => $item['quantity'], 'unit_price' => $product->price, 'total' => $lineTotal]);
                 $subtotal += $lineTotal;
