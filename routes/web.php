@@ -27,7 +27,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware('role:ADMIN')->name('admin.dashboard');
     Route::get('/admin/orders', [OrderController::class, 'index'])->name('admin.orders.index');
     Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->name('admin.orders.show');
-    Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:ADMIN')->name('admin.orders.status');
+    Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:ADMIN,MESERO')->name('admin.orders.status');
     Route::put('/admin/orders/{order}/deliver', [OrderController::class, 'deliver'])->middleware('role:ADMIN,MESERO')->name('admin.orders.deliver');
 
     Route::middleware('role:ADMIN')->group(function () {
