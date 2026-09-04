@@ -77,7 +77,7 @@ class UserController extends Controller
         return redirect()->route('admin.users.index')->with('success', 'Usuario actualizado exitosamente.');
     }
 
-    public function destroy(User $user): RedirectResponse
+    public function destroy(Request $request, User $user): RedirectResponse
     {
         if ($user->id === $request->user()->id) {
             return back()->withErrors(['user' => 'No puedes eliminar tu propio usuario.']);
