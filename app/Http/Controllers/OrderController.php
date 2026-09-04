@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
+use App\Enums\OrderType;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\TableSession;
@@ -11,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
@@ -18,29 +20,49 @@ class OrderController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validatedData = $request->validate([
-            'table_session_id' => ['required', 'integer', 'exists:table_sessions,id'],
+            'type' => ['nullable', Rule::enum(OrderType::class)],
+            'table_session_id' => ['nullable', 'integer', 'exists:table_sessions,id'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $session = TableSession::query()->findOrFail($validatedData['table_session_id']);
+        $type = OrderType::from($validatedData['type'] ?? OrderType::TABLE->value);
+        $tableSessionId = $validatedData['table_session_id'] ?? null;
 
-        if ($session->status !== TableSessionStatus::Active) {
+        if ($type === OrderType::TABLE && ! $tableSessionId) {
             throw ValidationException::withMessages([
-                'table_session_id' => ['La sesión de la mesa no está activa.'],
+                'table_session_id' => ['Los pedidos en mesa requieren una sesión activa.'],
             ]);
         }
 
-        $order = DB::transaction(function () use ($validatedData) {
+        if ($type === OrderType::TAKEAWAY && $tableSessionId) {
+            throw ValidationException::withMessages([
+                'table_session_id' => ['Un pedido para llevar no puede estar asociado a una mesa.'],
+            ]);
+        }
+
+        if ($tableSessionId) {
+            $session = TableSession::query()->findOrFail($tableSessionId);
+
+            if ($session->status !== TableSessionStatus::Active) {
+                throw ValidationException::withMessages([
+                    'table_session_id' => ['La sesión de la mesa no está activa.'],
+                ]);
+            }
+        }
+
+        $order = DB::transaction(function () use ($validatedData, $type, $tableSessionId) {
             $order = Order::create([
-                'table_session_id' => $validatedData['table_session_id'],
+                'table_session_id' => $tableSessionId,
+                'type' => $type,
                 'status' => OrderStatus::PENDING,
                 'subtotal' => 0,
                 'tax' => 0,
                 'total' => 0,
                 'notes' => $validatedData['notes'] ?? null,
+                'handled_by_user_id' => Auth::id(),
             ]);
 
             $subtotal = 0;
@@ -82,7 +104,7 @@ class OrderController extends Controller
             return $order;
         });
 
-        $order->load(['orderItems.product', 'statusHistories', 'tableSession.restaurantTable']);
+        $order->load(['orderItems.product', 'statusHistories', 'tableSession.restaurantTable', 'handledBy']);
 
         return response()->json([
             'message' => 'Pedido creado exitosamente',
