@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Enums\OrderStatus;
 
 class Order extends Model
 {
@@ -43,5 +44,11 @@ class Order extends Model
     public function deliveredBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'delivered_by_user_id');
+    }
+    protected function casts (): array
+    {
+        return [
+            'status' => OrderStatus::class,
+        ];
     }
 }

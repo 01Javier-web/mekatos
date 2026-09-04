@@ -1,0 +1,1 @@
+console.log("fronted blade cargado correctamente");
