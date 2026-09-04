@@ -14,12 +14,14 @@
                 @if (auth()->user()->role->value === 'ADMIN')
                     <a href="{{ route('admin.dashboard') }}">Inicio</a>
                     <a href="{{ route('admin.orders.index') }}">Pedidos</a>
+                    <a href="{{ route('admin.orders.create') }}">Nuevo pedido</a>
                     <a href="{{ route('admin.categories.index') }}">Categorías</a>
                     <a href="{{ route('admin.products.index') }}">Productos</a>
                     <a href="{{ route('admin.tables.index') }}">Mesas</a>
                     <a href="{{ route('admin.users.index') }}">Usuarios</a>
                 @else
                     <a href="{{ route('waiter.orders') }}">Pedidos</a>
+                    <a href="{{ route('admin.orders.create') }}">Nuevo pedido</a>
                 @endif
                 <span class="user-chip">{{ auth()->user()->name }} · {{ auth()->user()->role->value }}</span>
                 <form method="POST" action="{{ route('logout') }}" class="logout-form">
