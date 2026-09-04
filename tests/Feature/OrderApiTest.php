@@ -71,7 +71,7 @@ class OrderApiTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('order.type', OrderType::TABLE->value)
             ->assertJsonPath('order.status', OrderStatus::PENDING->value)
-            ->assertJsonPath('order.total', 36000);
+            ->assertJsonPath('order.total', '36000.00');
     }
 
     public function test_takeaway_requires_authentication(): void
@@ -97,7 +97,7 @@ class OrderApiTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('order.type', OrderType::TAKEAWAY->value)
             ->assertJsonPath('order.table_session_id', null)
-            ->assertJsonPath('order.total', 12000);
+            ->assertJsonPath('order.total', '12000.00');
     }
 
     public function test_unavailable_product_is_rejected(): void
