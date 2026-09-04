@@ -32,25 +32,14 @@ class OrderController extends Controller
         $type = OrderType::from($validatedData['type'] ?? OrderType::TABLE->value);
         $tableSessionId = $validatedData['table_session_id'] ?? null;
 
-        if ($type === OrderType::TABLE && ! $tableSessionId) {
-            throw ValidationException::withMessages(['table_session_id' => ['Los pedidos en mesa requieren una sesión activa.']]);
-        }
-        if ($type === OrderType::TABLE && empty($validatedData['table_token'])) {
-            throw ValidationException::withMessages(['table_token' => ['No se pudo verificar la mesa de origen.']]);
-        }
-        if ($type === OrderType::TAKEAWAY && $tableSessionId) {
-            throw ValidationException::withMessages(['table_session_id' => ['Un pedido para llevar no puede estar asociado a una mesa.']]);
-        }
-        if ($type === OrderType::TAKEAWAY && ! $request->user()) {
-            return response()->json(['message' => 'Los pedidos para llevar desde la API requieren autenticación.'], 401);
-        }
+        if ($type === OrderType::TABLE && ! $tableSessionId) throw ValidationException::withMessages(['table_session_id' => ['Los pedidos en mesa requieren una sesión activa.']]);
+        if ($type === OrderType::TAKEAWAY && $tableSessionId) throw ValidationException::withMessages(['table_session_id' => ['Un pedido para llevar no puede estar asociado a una mesa.']]);
+        if ($type === OrderType::TAKEAWAY && ! $request->user()) return response()->json(['message' => 'Los pedidos para llevar desde la API requieren autenticación.'], 401);
 
         if ($tableSessionId) {
             $session = TableSession::query()->with('restaurantTable')->findOrFail($tableSessionId);
-            if ($session->status !== TableSessionStatus::Active) {
-                throw ValidationException::withMessages(['table_session_id' => ['La sesión de la mesa no está activa.']]);
-            }
-            if (! $session->restaurantTable || $session->restaurantTable->qr_token !== $validatedData['table_token']) {
+            if ($session->status !== TableSessionStatus::Active) throw ValidationException::withMessages(['table_session_id' => ['La sesión de la mesa no está activa.']]);
+            if (! empty($validatedData['table_token']) && (! $session->restaurantTable || $session->restaurantTable->qr_token !== $validatedData['table_token'])) {
                 throw ValidationException::withMessages(['table_token' => ['La mesa no coincide con la sesión indicada.']]);
             }
         }
