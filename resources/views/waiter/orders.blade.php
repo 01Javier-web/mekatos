@@ -36,31 +36,23 @@
 
     <div class="waiter-grid">
         @forelse ($orders as $order)
-            @php
-                $status = $order->status;
-                $statusClass = match ($status) {
-                    \App\Enums\OrderStatus::PENDING => 'status-pending',
-                    \App\Enums\OrderStatus::PREPARING => 'status-preparing',
-                    \App\Enums\OrderStatus::READY => 'status-ready',
-                    default => 'status-order',
-                };
-            @endphp
+            @php $status = $order->status; @endphp
             <article class="waiter-card">
                 <div class="waiter-card-top">
                     <div>
                         <span class="eyebrow">Pedido</span>
                         <h3>#{{ $order->id }}</h3>
                     </div>
-                    <span class="status {{ $statusClass }}">{{ $status->value }}</span>
+                    <span class="status status-order">{{ $status->value }}</span>
                 </div>
 
-                <div class="waiter-order-meta">
-                    <div><span>Mesa</span><strong>{{ $order->tableSession?->restaurantTable?->number ?? '—' }}</strong></div>
-                    <div><span>Hora</span><strong>{{ $order->created_at?->format('H:i') ?? '—' }}</strong></div>
+                <div style="display:flex;justify-content:space-between;gap:16px;margin:16px 0;padding:12px 0;border-top:1px solid #eee;border-bottom:1px solid #eee;">
+                    <div><span class="muted" style="display:block;font-size:.8rem;">Mesa</span><strong>{{ $order->tableSession?->restaurantTable?->number ?? '—' }}</strong></div>
+                    <div style="text-align:right;"><span class="muted" style="display:block;font-size:.8rem;">Hora</span><strong>{{ $order->created_at?->format('H:i') ?? '—' }}</strong></div>
                 </div>
 
                 @if ($order->notes)
-                    <div class="waiter-note"><strong>Nota:</strong> {{ $order->notes }}</div>
+                    <div class="info-box"><strong>Nota del cliente:</strong><br>{{ $order->notes }}</div>
                 @endif
 
                 <div class="waiter-items">
@@ -77,33 +69,33 @@
                     <strong>${{ number_format($order->total, 0, ',', '.') }}</strong>
                 </div>
 
-                <div class="waiter-actions">
+                <div style="display:grid;gap:8px;">
                     @if ($status === \App\Enums\OrderStatus::PENDING)
                         <form method="POST" action="{{ route('admin.orders.status', $order) }}">
                             @csrf @method('PUT')
                             <input type="hidden" name="status" value="PREPARANDO">
-                            <button class="button button-primary" type="submit">Iniciar preparación</button>
+                            <button class="button button-primary" style="width:100%;" type="submit">Iniciar preparación</button>
                         </form>
                         <form method="POST" action="{{ route('admin.orders.status', $order) }}">
                             @csrf @method('PUT')
                             <input type="hidden" name="status" value="CANCELADO">
-                            <button class="button button-danger" type="submit">Cancelar</button>
+                            <button class="button button-danger" style="width:100%;" type="submit">Cancelar pedido</button>
                         </form>
                     @elseif ($status === \App\Enums\OrderStatus::PREPARING)
                         <form method="POST" action="{{ route('admin.orders.status', $order) }}">
                             @csrf @method('PUT')
                             <input type="hidden" name="status" value="LISTO">
-                            <button class="button button-primary" type="submit">Marcar como listo</button>
+                            <button class="button button-primary" style="width:100%;" type="submit">Marcar como listo</button>
                         </form>
                         <form method="POST" action="{{ route('admin.orders.status', $order) }}">
                             @csrf @method('PUT')
                             <input type="hidden" name="status" value="CANCELADO">
-                            <button class="button button-danger" type="submit">Cancelar</button>
+                            <button class="button button-danger" style="width:100%;" type="submit">Cancelar pedido</button>
                         </form>
                     @elseif ($status === \App\Enums\OrderStatus::READY)
                         <form method="POST" action="{{ route('admin.orders.deliver', $order) }}">
                             @csrf @method('PUT')
-                            <button class="button button-primary" type="submit">Entregar pedido</button>
+                            <button class="button button-primary" style="width:100%;" type="submit">Entregar pedido</button>
                         </form>
                     @endif
                 </div>
@@ -111,7 +103,7 @@
         @empty
             <div class="panel empty-state" style="grid-column:1/-1;">
                 <h3>No hay pedidos activos</h3>
-                <p>Cuando entre un nuevo pedido aparecerá aquí automáticamente al actualizar la página.</p>
+                <p>Cuando entre un nuevo pedido aparecerá aquí al actualizar la página.</p>
                 <a class="button" href="{{ route('waiter.orders') }}">Actualizar pedidos</a>
             </div>
         @endforelse
