@@ -14,6 +14,10 @@
                 <a href="{{ route('admin.orders.index') }}">Pedidos</a>
                 <a href="{{ route('admin.categories.index') }}">Categorías</a>
                 <a href="{{ route('admin.products.index') }}">Productos</a>
+                <form method="POST" action="{{ route('logout') }}" class="logout-form">
+                    @csrf
+                    <button type="submit" class="nav-logout">Cerrar sesión</button>
+                </form>
             </nav>
         </div>
     </header>
