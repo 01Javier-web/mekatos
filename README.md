@@ -141,5 +141,3 @@ Para revisar el estado de las migraciones:
 ```bash
 php artisan migrate:status
 ```
-
-Laravel utiliza migraciones como control de versiones del esquema de la base de datos. citeturn0search0
