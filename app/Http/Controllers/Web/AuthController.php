@@ -13,7 +13,9 @@ class AuthController extends Controller
     public function showLogin(): View|RedirectResponse
     {
         if (Auth::check()) {
-            return redirect()->route('admin.orders.index');
+            return redirect()->route(
+                Auth::user()->role->value === 'ADMIN' ? 'admin.dashboard' : 'waiter.orders'
+            );
         }
 
         return view('auth.login');
@@ -39,7 +41,7 @@ class AuthController extends Controller
         return redirect()->intended(
             Auth::user()->role->value === 'ADMIN'
                 ? route('admin.dashboard')
-                : route('admin.orders.index')
+                : route('waiter.orders')
         );
     }
 
