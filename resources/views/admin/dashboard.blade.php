@@ -4,19 +4,24 @@
 
 @section('content')
 <div class="page-shell">
-    <div class="page-heading">
-        <div><span class="eyebrow">Panel administrativo</span><h2>Buenos días, {{ auth()->user()->name }}</h2><p>Ten una vista rápida de la operación de Mekatos.</p></div>
+    <div class="page-heading dashboard-heading">
+        <div><span class="eyebrow">Panel administrativo</span><h2>Buenos días, {{ auth()->user()->name }}</h2><p>Una vista rápida para saber qué necesita atención ahora.</p></div>
         <a class="button button-primary" href="{{ route('admin.orders.create') }}">+ Crear pedido</a>
     </div>
 
+    <section class="dashboard-focus" aria-label="Estado de la operación">
+        <div><span class="focus-dot"></span><div><strong>Operación activa</strong><small>Gestiona los pedidos desde este panel.</small></div></div>
+        <a href="{{ route('admin.orders.index') }}">Ver todos los pedidos <span aria-hidden="true">→</span></a>
+    </section>
+
     <div class="stats-grid">
-        <a class="stat-card" href="{{ route('admin.orders.index') }}"><span>Pedidos registrados</span><strong>{{ $ordersCount }}</strong></a>
-        <a class="stat-card" href="{{ route('admin.orders.index', ['status' => 'PENDIENTE']) }}"><span>Esperando cocina</span><strong>{{ $pendingOrders }}</strong></a>
-        <a class="stat-card" href="{{ route('admin.orders.index', ['status' => 'LISTO']) }}"><span>Listos para entregar</span><strong>{{ $readyOrders }}</strong></a>
-        <a class="stat-card" href="{{ route('admin.products.index') }}"><span>Productos activos</span><strong>{{ $productsCount }}</strong></a>
-        <a class="stat-card" href="{{ route('admin.categories.index') }}"><span>Categorías</span><strong>{{ $categoriesCount }}</strong></a>
-        <a class="stat-card" href="{{ route('admin.tables.index') }}"><span>Mesas</span><strong>{{ $tablesCount }}</strong></a>
-        <a class="stat-card" href="{{ route('admin.users.index') }}"><span>Usuarios</span><strong>{{ $usersCount }}</strong></a>
+        <a class="stat-card" href="{{ route('admin.orders.index') }}"><span>Pedidos registrados</span><strong>{{ $ordersCount }}</strong><small>Histórico del sistema</small></a>
+        <a class="stat-card stat-attention" href="{{ route('admin.orders.index', ['status' => 'PENDIENTE']) }}"><span>Esperando cocina</span><strong>{{ $pendingOrders }}</strong><small>Requieren preparación</small></a>
+        <a class="stat-card stat-ready" href="{{ route('admin.orders.index', ['status' => 'LISTO']) }}"><span>Listos para entregar</span><strong>{{ $readyOrders }}</strong><small>Esperando atención</small></a>
+        <a class="stat-card" href="{{ route('admin.products.index') }}"><span>Productos activos</span><strong>{{ $productsCount }}</strong><small>Disponibles en menú</small></a>
+        <a class="stat-card" href="{{ route('admin.categories.index') }}"><span>Categorías</span><strong>{{ $categoriesCount }}</strong><small>Organización del menú</small></a>
+        <a class="stat-card" href="{{ route('admin.tables.index') }}"><span>Mesas</span><strong>{{ $tablesCount }}</strong><small>Gestiona estado y QR</small></a>
+        <a class="stat-card" href="{{ route('admin.users.index') }}"><span>Usuarios</span><strong>{{ $usersCount }}</strong><small>Personal con acceso</small></a>
     </div>
 
     <section class="quick-actions" aria-label="Acciones rápidas">
@@ -33,7 +38,7 @@
             <tbody>
                 @forelse ($recentOrders as $order)
                     @php $isTakeaway = $order->type?->value === 'PARA_LLEVAR'; @endphp
-                    <tr><td><strong>#{{ $order->id }}</strong><small>{{ $order->created_at?->format('d/m/Y H:i') }}</small></td><td>{{ $isTakeaway ? 'Para llevar' : 'Mesa '.($order->tableSession?->restaurantTable?->number ?? '—') }}</td><td><span class="status status-order">{{ $order->status->value }}</span></td><td><strong>${{ number_format($order->total, 0, ',', '.') }}</strong></td><td class="actions-cell"><a class="button button-small" href="{{ route('admin.orders.show', $order) }}">Ver detalle</a></td></tr>
+                    <tr><td><strong>#{{ $order->id }}</strong><small>{{ $order->created_at?->format('d/m/Y H:i') }}</small></td><td><span class="type-badge">{{ $isTakeaway ? '🥡 Para llevar' : '🪑 Mesa '.($order->tableSession?->restaurantTable?->number ?? '—') }}</span></td><td><span class="status status-order">{{ $order->status->value }}</span></td><td><strong>${{ number_format($order->total, 0, ',', '.') }}</strong></td><td class="actions-cell"><a class="button button-small" href="{{ route('admin.orders.show', $order) }}">Ver detalle</a></td></tr>
                 @empty
                     <tr><td colspan="5" class="empty-state"><h3>Aún no hay pedidos</h3><p>Los pedidos nuevos aparecerán aquí.</p><a class="button button-primary" href="{{ route('admin.orders.create') }}">Crear primer pedido</a></td></tr>
                 @endforelse
@@ -42,6 +47,6 @@
     </section>
 </div>
 <style>
-.quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:-4px 0 24px}.quick-actions a{display:flex;align-items:center;gap:12px;padding:15px 16px;background:#fff;border:1px solid #e5e5e2;border-radius:14px;text-decoration:none;box-shadow:0 6px 18px rgba(0,0,0,.035)}.quick-actions a:hover{background:#fafafa;transform:translateY(-1px)}.quick-actions a>span{width:38px;height:38px;display:grid;place-items:center;border-radius:10px;background:#f0f0ee;font-size:1.2rem}.quick-actions strong,.quick-actions small{display:block}.quick-actions strong{font-size:.9rem}.quick-actions small{margin-top:2px;color:#777;font-size:.75rem}@media(max-width:900px){.quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.quick-actions{grid-template-columns:1fr}}
+.dashboard-focus{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:-8px 0 20px;padding:13px 15px;background:#fff;border:1px solid #e5e5e2;border-radius:12px}.dashboard-focus>div{display:flex;align-items:center;gap:10px}.focus-dot{width:9px;height:9px;border-radius:50%;background:#2e8b57;box-shadow:0 0 0 4px #edf7f0}.dashboard-focus strong,.dashboard-focus small{display:block}.dashboard-focus strong{font-size:.84rem}.dashboard-focus small{margin-top:1px;color:#777;font-size:.74rem}.dashboard-focus>a{color:#555;text-decoration:none;font-size:.78rem;font-weight:750}.dashboard-focus>a:hover{text-decoration:underline}.stat-card{min-height:126px}.stat-card small{display:block;margin-top:8px;color:#8a8a8a;font-size:.72rem}.stat-attention{border-color:#e8dcc0}.stat-ready{border-color:#cfe5d5}.type-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:8px;background:#f5f5f3;font-size:.78rem;font-weight:700}@media(max-width:600px){.dashboard-focus{align-items:flex-start;flex-direction:column}.dashboard-focus>a{padding-left:19px}}
 </style>
 @endsection
