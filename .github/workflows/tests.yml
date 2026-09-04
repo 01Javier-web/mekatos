@@ -35,5 +35,8 @@ jobs:
       - name: Generate application key
         run: php artisan key:generate --ansi
 
+      - name: Compile Blade views
+        run: php artisan view:cache
+
       - name: Run automated tests
         run: php artisan test --colors=always
