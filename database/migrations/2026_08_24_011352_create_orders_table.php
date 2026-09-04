@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('table_session_id')
+                ->nullable()
                 ->constrained('table_sessions')
                 ->restrictOnDelete()
                 ->cascadeOnUpdate();
