@@ -26,6 +26,8 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
+        $credentials['is_active'] = true;
+
         if (!Auth::attempt($credentials)) {
             return back()
                 ->withErrors(['email' => 'El correo o la contraseña son incorrectos.'])
@@ -34,16 +36,18 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('admin.orders.index'));
+        return redirect()->intended(
+            Auth::user()->role->value === 'ADMIN'
+                ? route('admin.dashboard')
+                : route('admin.orders.index')
+        );
     }
 
     public function logout(Request $request): RedirectResponse
     {
         Auth::logout();
-
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-
         return redirect()->route('login');
     }
 }
