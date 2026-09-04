@@ -9,7 +9,7 @@
 <body>
     <header class="main-header">
         <div class="header-inner">
-            <a class="brand" href="{{ auth()->user()->role->value === 'ADMIN' ? route('admin.dashboard') : route('admin.orders.index') }}">Mekatos</a>
+            <a class="brand" href="{{ auth()->user()->role->value === 'ADMIN' ? route('admin.dashboard') : route('waiter.orders') }}">Mekatos</a>
             <nav class="main-nav" aria-label="Navegación principal">
                 @if (auth()->user()->role->value === 'ADMIN')
                     <a href="{{ route('admin.dashboard') }}">Inicio</a>
@@ -19,7 +19,7 @@
                     <a href="{{ route('admin.tables.index') }}">Mesas</a>
                     <a href="{{ route('admin.users.index') }}">Usuarios</a>
                 @else
-                    <a href="{{ route('admin.orders.index') }}">Pedidos</a>
+                    <a href="{{ route('waiter.orders') }}">Pedidos</a>
                 @endif
                 <span class="user-chip">{{ auth()->user()->name }} · {{ auth()->user()->role->value }}</span>
                 <form method="POST" action="{{ route('logout') }}" class="logout-form">
@@ -29,11 +29,7 @@
             </nav>
         </div>
     </header>
-
-    <main>
-        @yield('content')
-    </main>
-
+    <main>@yield('content')</main>
     <script src="{{ asset('js/app.js') }}" defer></script>
 </body>
 </html>
