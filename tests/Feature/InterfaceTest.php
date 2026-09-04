@@ -39,7 +39,7 @@ class InterfaceTest extends TestCase
         $this->actingAs($admin);
 
         $this->get(route('admin.dashboard'))->assertOk()->assertSee('Panel administrativo');
-        $this->get(route('admin.orders.index))->assertOk()->assertSee('Pedidos registrados');
+        $this->get(route('admin.orders.index'))->assertOk()->assertSee('Pedidos registrados');
         $this->get(route('admin.orders.create'))->assertOk()->assertSee('Tipo de pedido');
         $this->get(route('admin.products.index'))->assertOk()->assertSee('Catálogo');
         $this->get(route('admin.categories.index'))->assertOk()->assertSee('Listado de categorías');
