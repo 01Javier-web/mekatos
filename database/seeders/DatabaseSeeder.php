@@ -6,6 +6,7 @@ use App\Models\User;
 use App\UserRole;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
@@ -17,38 +18,56 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $oldUsers = [
+            'admin@mekatos.test',
+            'gerencia@mekatos.test',
+            'mesero1@mekatos.test',
+            'mesero2@mekatos.test',
+            'mesero3@mekatos.test',
+        ];
+
+        $oldUserIds = User::whereIn('email', $oldUsers)->pluck('id');
+
+        // Preserve existing orders/history while removing the old test accounts.
+        DB::table('orders')
+            ->whereIn('handled_by_user_id', $oldUserIds)
+            ->update(['handled_by_user_id' => null]);
+
+        DB::table('orders')
+            ->whereIn('delivered_by_user_id', $oldUserIds)
+            ->update(['delivered_by_user_id' => null]);
+
+        DB::table('order_status_histories')
+            ->whereIn('changed_by_user_id', $oldUserIds)
+            ->update(['changed_by_user_id' => null]);
+
+        User::whereIn('id', $oldUserIds)->delete();
+
         $this->seedUser([
-            'email' => 'admin@mekatos.test',
-            'name' => 'Administrador Principal',
-            'password' => 'password',
+            'email' => 'admin1@mekatos.test',
+            'name' => 'Administrador 1',
+            'password' => '12345678',
             'role' => UserRole::Admin,
         ]);
 
         $this->seedUser([
-            'email' => 'gerencia@mekatos.test',
-            'name' => 'Gerencia Mekatos',
-            'password' => 'password',
+            'email' => 'admin2@mekatos.test',
+            'name' => 'Administrador 2',
+            'password' => '12345678',
             'role' => UserRole::Admin,
         ]);
 
         $this->seedUser([
             'email' => 'mesero1@mekatos.test',
-            'name' => 'Carlos Martínez',
-            'password' => 'password',
+            'name' => 'Mesero 1',
+            'password' => '12345678',
             'role' => UserRole::Waiter,
         ]);
 
         $this->seedUser([
             'email' => 'mesero2@mekatos.test',
-            'name' => 'Laura Gómez',
-            'password' => 'password',
-            'role' => UserRole::Waiter,
-        ]);
-
-        $this->seedUser([
-            'email' => 'mesero3@mekatos.test',
-            'name' => 'Andrés Rodríguez',
-            'password' => 'password',
+            'name' => 'Mesero 2',
+            'password' => '12345678',
             'role' => UserRole::Waiter,
         ]);
 
