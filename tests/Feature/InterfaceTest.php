@@ -44,7 +44,7 @@ class InterfaceTest extends TestCase
         $this->get(route('admin.products.index'))->assertOk()->assertSee('Catálogo');
         $this->get(route('admin.categories.index'))->assertOk()->assertSee('Listado de categorías');
         $this->get(route('admin.tables.index'))->assertOk()->assertSee('Mesas registradas');
-        $this->get(route('admin.users.index'))->assertOk()->assertSee('Usuarios registrados');
+        $this->get(route('admin.users.index'))->assertOk()->assertSee('Equipo de Mekatos');
     }
 
     public function test_waiter_interface_renders_for_waiter(): void
