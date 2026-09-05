@@ -7,6 +7,7 @@ use App\Models\User;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -83,7 +84,21 @@ class UserController extends Controller
             return back()->withErrors(['user' => 'No puedes eliminar tu propio usuario.']);
         }
 
-        $user->delete();
+        DB::transaction(function () use ($user): void {
+            DB::table('orders')
+                ->where('handled_by_user_id', $user->id)
+                ->update(['handled_by_user_id' => null]);
+
+            DB::table('orders')
+                ->where('delivered_by_user_id', $user->id)
+                ->update(['delivered_by_user_id' => null]);
+
+            DB::table('order_status_histories')
+                ->where('changed_by_user_id', $user->id)
+                ->update(['changed_by_user_id' => null]);
+
+            $user->delete();
+        });
 
         return redirect()->route('admin.users.index')->with('success', 'Usuario eliminado exitosamente.');
     }
