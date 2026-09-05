@@ -43,10 +43,23 @@ class OrderController extends Controller
         $validated = $request->validate([
             'type' => ['required', Rule::enum(OrderType::class)],
             'table_id' => ['nullable', 'integer', 'exists:restaurant_tables,id'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*' => ['required', 'integer', 'min:1'],
+            'items' => ['required', 'array'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        // The form contains one quantity input for every available product.
+        // Zero means "not selected", so remove those entries before applying
+        // the quantity validation to the products that are actually ordered.
+        $validated['items'] = array_filter(
+            $validated['items'],
+            static fn ($quantity): bool => (int) $quantity !== 0
+        );
+
+        $itemsValidator = validator(
+            ['items' => $validated['items']],
+            ['items' => ['required', 'array', 'min:1'], 'items.*' => ['required', 'integer', 'min:1']]
+        );
+        $validated['items'] = $itemsValidator->validate()['items'];
 
         $type = OrderType::from($validated['type']);
         if ($type === OrderType::TABLE && empty($validated['table_id'])) {
