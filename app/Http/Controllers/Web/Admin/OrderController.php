@@ -44,12 +44,12 @@ class OrderController extends Controller
             'type' => ['required', Rule::enum(OrderType::class)],
             'table_id' => ['nullable', 'integer', 'exists:restaurant_tables,id'],
             'items' => ['required', 'array'],
+            'items.*' => ['nullable', 'integer', 'min:0', 'max:99'],
+            'item_notes' => ['nullable', 'array'],
+            'item_notes.*' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        // The form contains one quantity input for every available product.
-        // Zero means "not selected", so remove those entries before applying
-        // the quantity validation to the products that are actually ordered.
         $validated['items'] = array_filter(
             $validated['items'],
             static fn ($quantity): bool => (int) $quantity !== 0
@@ -57,7 +57,7 @@ class OrderController extends Controller
 
         $itemsValidator = validator(
             ['items' => $validated['items']],
-            ['items' => ['required', 'array', 'min:1'], 'items.*' => ['required', 'integer', 'min:1']]
+            ['items' => ['required', 'array', 'min:1'], 'items.*' => ['required', 'integer', 'min:1', 'max:99']]
         );
         $validated['items'] = $itemsValidator->validate()['items'];
 
@@ -101,7 +101,13 @@ class OrderController extends Controller
                     throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no está disponible."]]);
                 }
                 $lineTotal = $product->price * $quantity;
-                $order->orderItems()->create(['product_id' => $product->id, 'quantity' => $quantity, 'unit_price' => $product->price, 'total' => $lineTotal]);
+                $order->orderItems()->create([
+                    'product_id' => $product->id,
+                    'quantity' => $quantity,
+                    'unit_price' => $product->price,
+                    'total' => $lineTotal,
+                    'notes' => $validated['item_notes'][$productId] ?? null,
+                ]);
                 $subtotal += $lineTotal;
             }
 
