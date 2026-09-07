@@ -26,6 +26,7 @@ class OrderController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
+            'items.*.notes' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -51,7 +52,7 @@ class OrderController extends Controller
                 $product = Product::query()->findOrFail($item['product_id']);
                 if (! $product->is_available) throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no está disponible."]]);
                 $lineTotal = $product->price * $item['quantity'];
-                $order->orderItems()->create(['product_id' => $product->id, 'quantity' => $item['quantity'], 'unit_price' => $product->price, 'total' => $lineTotal]);
+                $order->orderItems()->create(['product_id' => $product->id, 'quantity' => $item['quantity'], 'unit_price' => $product->price, 'total' => $lineTotal, 'notes' => $item['notes'] ?? null]);
                 $subtotal += $lineTotal;
             }
             $order->update(['subtotal' => $subtotal, 'tax' => 0, 'total' => $subtotal]);
