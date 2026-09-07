@@ -46,7 +46,7 @@ class OrderApiTest extends TestCase
         ]);
     }
 
-    public function test_table_order_calculates_total(): void
+    public function test_table_order_calculates_total_and_saves_item_note(): void
     {
         $product = $this->product();
         $table = RestaurantTable::create([
@@ -65,13 +65,20 @@ class OrderApiTest extends TestCase
         $response = $this->postJson('/api/orders', [
             'type' => OrderType::TABLE->value,
             'table_session_id' => $session->id,
-            'items' => [['product_id' => $product->id, 'quantity' => 2]],
+            'items' => [['product_id' => $product->id, 'quantity' => 2, 'notes' => 'Sin cebolla, extra queso']],
         ]);
 
         $response->assertCreated()
             ->assertJsonPath('order.type', OrderType::TABLE->value)
             ->assertJsonPath('order.status', OrderStatus::PENDING->value)
-            ->assertJsonPath('order.total', '36000.00');
+            ->assertJsonPath('order.total', '36000.00')
+            ->assertJsonPath('order.order_items.0.notes', 'Sin cebolla, extra queso');
+
+        $this->assertDatabaseHas('order_items', [
+            'order_id' => $response->json('order.id'),
+            'product_id' => $product->id,
+            'notes' => 'Sin cebolla, extra queso',
+        ]);
     }
 
     public function test_takeaway_requires_authentication(): void
