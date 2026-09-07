@@ -42,6 +42,7 @@
                     <a href="{{ route('admin.orders.index') }}" {{ str_starts_with($currentRoute ?? '', 'admin.orders.') && $currentRoute !== 'admin.orders.create' ? 'aria-current=page' : '' }}>Pedidos</a>
                     <a class="nav-primary" href="{{ route('admin.orders.create') }}" {{ $currentRoute === 'admin.orders.create' ? 'aria-current=page' : '' }}>+ Nuevo pedido</a>
                     <a href="{{ route('waiter.orders') }}" {{ $currentRoute === 'waiter.orders' ? 'aria-current=page' : '' }}>Pedidos mesero</a>
+                    <a href="{{ route('admin.reports.daily') }}" {{ $currentRoute === 'admin.reports.daily' ? 'aria-current=page' : '' }}>📊 Reportes</a>
                     <a href="{{ route('admin.categories.index') }}" {{ str_starts_with($currentRoute ?? '', 'admin.categories.') ? 'aria-current=page' : '' }}>Categorías</a>
                     <a href="{{ route('admin.products.index') }}" {{ str_starts_with($currentRoute ?? '', 'admin.products.') ? 'aria-current=page' : '' }}>Productos</a>
                     <a href="{{ route('admin.tables.index') }}" {{ str_starts_with($currentRoute ?? '', 'admin.tables.') ? 'aria-current=page' : '' }}>Mesas</a>
