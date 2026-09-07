@@ -84,6 +84,7 @@ class OrderController extends Controller
                         $item['juice_preparation'] ?? null,
                         $item['juice_fruit'] ?? null,
                         $item['juice_other_fruit'] ?? null,
+                        $item['notes'] ?? null,
                     );
                 }
 
