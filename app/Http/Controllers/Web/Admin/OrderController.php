@@ -82,12 +82,16 @@ class OrderController extends Controller
                 $lineNotes = $validated['item_notes'][$productId] ?? null;
 
                 if (JuiceOptions::isJuice($product)) {
-                    $unitPrice = JuiceOptions::price($validated['juice_preparation'][$productId] ?? null);
-                    $lineNotes = JuiceOptions::buildNote(
-                        $validated['juice_preparation'][$productId] ?? null,
-                        $validated['juice_fruit'][$productId] ?? null,
-                        $validated['juice_other_fruit'][$productId] ?? null,
-                    );
+                    $preparation = $validated['juice_preparation'][$productId] ?? null;
+                    $fruit = $validated['juice_fruit'][$productId] ?? null;
+                    $otherFruit = $validated['juice_other_fruit'][$productId] ?? null;
+                    $details = $lineNotes;
+                    if ($fruit === JuiceOptions::OTHER && trim((string) $otherFruit) === '') {
+                        $otherFruit = $details;
+                        $details = null;
+                    }
+                    $unitPrice = JuiceOptions::price($preparation);
+                    $lineNotes = JuiceOptions::buildNote($preparation, $fruit, $otherFruit, $details);
                 }
 
                 $lineTotal = $unitPrice * $quantity;
