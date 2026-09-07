@@ -18,15 +18,12 @@ class PrintController extends Controller
 {
     public function orderPack(Order $order): View
     {
-        if ($order->status !== OrderStatus::PENDING) {
-            throw ValidationException::withMessages(['status' => ['Solo se pueden imprimir comandas de pedidos PENDIENTES.']]);
-        }
+        if ($order->status !== OrderStatus::PENDING) throw ValidationException::withMessages(['status' => ['Solo se pueden imprimir comandas de pedidos PENDIENTES.']]);
         $previousStatus = $order->status;
         DB::transaction(function () use ($order, $previousStatus): void {
             $order->update(['status' => OrderStatus::PREPARING]);
             $order->statusHistories()->create(['previous_status' => $previousStatus->value, 'new_status' => OrderStatus::PREPARING->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
         });
-
         $order->load(['tableSession.restaurantTable', 'orderItems.product.category', 'handledBy']);
         $juiceItems = $order->orderItems->filter(fn ($item): bool => str_starts_with(mb_strtolower($item->product?->name ?? ''), 'jugo'))->values();
         $kitchenItems = $order->orderItems->reject(fn ($item): bool => $this->isNonPreparedDrink($item) || str_starts_with(mb_strtolower($item->product?->name ?? ''), 'jugo'))->values();
@@ -57,13 +54,8 @@ class PrintController extends Controller
 
     private function loadActiveAccount(TableSession $tableSession): void
     {
-        $tableSession->load([
-            'restaurantTable',
-            'orders' => fn ($query) => $query->where('status', '!=', OrderStatus::COMPLETED->value)->with('orderItems.product')->orderBy('created_at'),
-        ]);
-        if ($tableSession->status !== TableSessionStatus::Active) {
-            throw ValidationException::withMessages(['table' => ['La sesión de esta mesa ya está cerrada.']]);
-        }
+        $tableSession->load(['restaurantTable', 'orders' => fn ($query) => $query->where('status', '!=', OrderStatus::COMPLETED->value)->with('orderItems.product')->orderBy('created_at')]);
+        if ($tableSession->status !== TableSessionStatus::Active) throw ValidationException::withMessages(['table' => ['La sesión de esta mesa ya está cerrada.']]);
     }
 
     public function payTableSession(TableSession $tableSession): RedirectResponse
@@ -74,7 +66,6 @@ class PrintController extends Controller
             $orders = $session->orders()->lockForUpdate()->where('status', '!=', OrderStatus::COMPLETED->value)->get();
             if ($orders->isEmpty()) throw ValidationException::withMessages(['table' => ['No hay pedidos pendientes de cobro en esta mesa.']]);
             if ($orders->contains(fn (Order $order): bool => $order->status !== OrderStatus::DELIVERED)) throw ValidationException::withMessages(['status' => ['No se puede cerrar la cuenta mientras haya pedidos que todavía no estén ENTREGADOS.']]);
-
             foreach ($orders as $order) {
                 $order->update(['status' => OrderStatus::COMPLETED, 'paid_at' => now(), 'paid_by_user_id' => Auth::id()]);
                 $order->statusHistories()->create(['previous_status' => OrderStatus::DELIVERED->value, 'new_status' => OrderStatus::COMPLETED->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
@@ -82,7 +73,8 @@ class PrintController extends Controller
             $session->update(['status' => TableSessionStatus::CLOSED, 'ended_at' => now()]);
             $session->restaurantTable?->update(['status' => TableStatus::AVAILABLE]);
         });
-        return redirect()->route('waiter.orders')->with('success', 'Cuenta pagada. La mesa quedó disponible nuevamente.');
+        $route = Auth::user()?->role?->value === 'MESERO' ? 'waiter.orders' : 'admin.orders.index';
+        return redirect()->route($route)->with('success', 'Cuenta pagada. La mesa quedó disponible nuevamente.');
     }
 
     public function payOrder(Order $order): RedirectResponse
@@ -93,6 +85,7 @@ class PrintController extends Controller
             $order->update(['status' => OrderStatus::COMPLETED, 'paid_at' => now(), 'paid_by_user_id' => Auth::id()]);
             $order->statusHistories()->create(['previous_status' => OrderStatus::DELIVERED->value, 'new_status' => OrderStatus::COMPLETED->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
         });
-        return redirect()->route('waiter.orders')->with('success', 'Pago registrado. Pedido terminado.');
+        $route = Auth::user()?->role?->value === 'MESERO' ? 'waiter.orders' : 'admin.orders.index';
+        return redirect()->route($route)->with('success', 'Pago registrado. Pedido terminado.');
     }
 }
