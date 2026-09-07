@@ -24,6 +24,6 @@
         <div class="total"><span>TOTAL</span><span>${{ number_format($total,0,',','.') }}</span></div>
         <div class="thanks">Gracias por su visita</div>
     </main>
-    <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script>
+    <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));window.addEventListener('afterprint',()=>setTimeout(()=>window.close(),150));</script>
 </body>
 </html>
