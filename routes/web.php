@@ -20,13 +20,13 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 Route::get('/mesa/{token}', [ClientController::class, 'table'])->name('client.table');
 
 Route::middleware('auth')->group(function () {
-    // ADMIN inherits all operational functions available to MESERO.
     Route::get('/waiter/orders', [WaiterController::class, 'index'])->middleware('role:ADMIN,MESERO')->name('waiter.orders');
     Route::get('/admin/orders/create', [OrderController::class, 'create'])->middleware('role:ADMIN,MESERO')->name('admin.orders.create');
     Route::post('/admin/orders', [OrderController::class, 'store'])->middleware('role:ADMIN,MESERO')->name('admin.orders.store');
 
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware('role:ADMIN')->name('admin.dashboard');
     Route::get('/admin/reports/daily', [SalesReportController::class, 'daily'])->middleware('role:ADMIN')->name('admin.reports.daily');
+    Route::post('/admin/reports/daily/close', [SalesReportController::class, 'closeDay'])->middleware('role:ADMIN')->name('admin.reports.daily.close');
     Route::get('/admin/orders', [OrderController::class, 'index'])->middleware('role:ADMIN')->name('admin.orders.index');
     Route::get('/admin/orders/pending', [OrderController::class, 'pending'])->middleware('role:ADMIN')->name('admin.orders.pending');
     Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->middleware('role:ADMIN')->name('admin.orders.show');
