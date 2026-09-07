@@ -25,7 +25,7 @@ class JuiceOptions
         return $product->name === self::PRODUCT_NAME;
     }
 
-    public static function buildNote(?string $preparation, ?string $fruit, ?string $otherFruit = null): string
+    public static function buildNote(?string $preparation, ?string $fruit, ?string $otherFruit = null, ?string $details = null): string
     {
         if (! in_array($preparation, [self::WATER, self::MILK], true)) {
             throw ValidationException::withMessages(['items' => ['Selecciona si el jugo natural es en agua o en leche.']]);
@@ -44,7 +44,9 @@ class JuiceOptions
             return $preparationLabel.' · Otro: '.$otherFruit;
         }
 
-        return $preparationLabel.' · '.self::FRUITS[$fruit];
+        $note = $preparationLabel.' · '.self::FRUITS[$fruit];
+        $details = trim((string) $details);
+        return $details !== '' ? $note.' · '.$details : $note;
     }
 
     public static function price(?string $preparation): int
