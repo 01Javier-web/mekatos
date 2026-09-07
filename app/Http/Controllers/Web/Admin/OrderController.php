@@ -26,22 +26,13 @@ class OrderController extends Controller
     public function index(Request $request): View
     {
         $orders = Order::query()->with(['tableSession.restaurantTable', 'orderItems.product', 'handledBy'])->when($request->status, fn ($query, $status) => $query->where('status', $status))->latest()->get();
-        return view('admin.orders.index', ['orders' => $orders, 'statuses' => OrderStatus::cases(), 'selectedStatus' => $request->status]);
+        return view('admin.orders.index', ['orders' => $orders, 'statuses' => OrderStatus::operationalCases(), 'selectedStatus' => $request->status]);
     }
 
     public function pending(): JsonResponse
     {
         $orders = Order::query()->where('status', OrderStatus::PENDING->value)->with(['tableSession.restaurantTable', 'handledBy'])->oldest()->get();
-        return response()->json([
-            'count' => $orders->count(),
-            'ids' => $orders->pluck('id')->values(),
-            'orders' => $orders->map(fn (Order $order) => [
-                'id' => $order->id,
-                'location' => $order->type?->value === 'PARA_LLEVAR' ? 'PARA LLEVAR' : 'MESA '.($order->tableSession?->restaurantTable?->number ?? '—'),
-                'time' => $order->created_at?->format('H:i'),
-                'responsible' => $order->handledBy?->name ?? 'Pedido QR',
-            ])->values(),
-        ]);
+        return response()->json(['count' => $orders->count(), 'ids' => $orders->pluck('id')->values(), 'orders' => $orders->map(fn (Order $order) => ['id' => $order->id, 'location' => $order->type?->value === 'PARA_LLEVAR' ? 'PARA LLEVAR' : 'MESA '.($order->tableSession?->restaurantTable?->number ?? '—'), 'time' => $order->created_at?->format('H:i'), 'responsible' => $order->handledBy?->name ?? 'Pedido QR'])->values()]);
     }
 
     public function create(): View
@@ -57,7 +48,6 @@ class OrderController extends Controller
         $type = OrderType::from($validated['type']);
         if ($type === OrderType::TABLE && empty($validated['table_id'])) throw ValidationException::withMessages(['table_id' => ['Selecciona una mesa para un pedido en mesa.']]);
         if ($type === OrderType::TAKEAWAY && ! empty($validated['table_id'])) throw ValidationException::withMessages(['table_id' => ['Un pedido para llevar no puede tener una mesa asociada.']]);
-
         $order = DB::transaction(function () use ($validated, $type) {
             $tableSession = null;
             if ($type === OrderType::TABLE) {
@@ -87,7 +77,7 @@ class OrderController extends Controller
     public function show(Order $order): View
     {
         $order->load(['tableSession.restaurantTable', 'orderItems.product', 'statusHistories.changedBy', 'handledBy', 'deliveredBy', 'paidBy']);
-        return view('admin.orders.show', ['order' => $order, 'statuses' => OrderStatus::cases()]);
+        return view('admin.orders.show', ['order' => $order, 'statuses' => OrderStatus::operationalCases()]);
     }
 
     public function updateStatus(Request $request, Order $order): RedirectResponse
@@ -100,7 +90,6 @@ class OrderController extends Controller
             $order->update(['status' => $newStatus]);
             $order->statusHistories()->create(['previous_status' => $previousStatus->value, 'new_status' => $newStatus->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
         });
-        if (Auth::user()?->role?->value === 'MESERO') return redirect()->route('waiter.orders')->with('success', "Pedido #{$order->id} actualizado a {$newStatus->value}.");
         return redirect()->route('admin.orders.show', $order)->with('success', 'Estado del pedido actualizado exitosamente.');
     }
 
