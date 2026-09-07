@@ -2,9 +2,15 @@
 @section('title', 'Pedidos | Mekatos')
 @section('content')
 <div class="page-shell">
-    <div class="page-heading"><div><span class="eyebrow">Operación</span><h2>Pedidos</h2><p>Consulta y gestiona todos los pedidos del restaurante.</p></div><a class="button button-primary" href="{{ route('admin.orders.create') }}">+ Nuevo pedido</a></div>
+    <div class="page-heading"><div><span class="eyebrow">Caja</span><h2>Pedidos</h2><p>Recibe pedidos, imprime las comandas y controla su estado.</p></div><div class="page-heading-actions"><button class="button" id="sound-toggle" type="button">🔊 Activar sonido</button><a class="button button-primary" href="{{ route('admin.orders.create') }}">+ Nuevo pedido</a></div></div>
     @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if ($errors->any())<div class="alert alert-error"><strong>No se pudo completar la acción.</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+
+    <section class="panel pending-panel" id="pending-panel">
+        <div class="panel-header"><div><h3>Pedidos pendientes de impresión</h3><span id="pending-summary">Buscando pedidos nuevos...</span></div><span class="pending-count" id="pending-count">0</span></div>
+        <div id="pending-list" class="pending-list"><div class="pending-empty">No hay pedidos pendientes de impresión.</div></div>
+    </section>
+
     <section class="panel">
         <div class="panel-header order-filter-header">
             <div><h3>Pedidos registrados</h3><span id="orders-count">{{ $orders->count() }} mostrados</span></div>
@@ -17,7 +23,7 @@
             <thead><tr><th>Pedido</th><th>Tipo</th><th>Atención</th><th>Productos</th><th>Total</th><th>Estado</th><th class="actions-cell">Acciones</th></tr></thead>
             <tbody id="orders-body">
             @forelse ($orders as $order)
-                @php $isTakeaway = $order->type?->value === 'PARA_LLEVAR'; $statusClass = strtolower($order->status->value); @endphp
+                @php $isTakeaway = $order->type?->value === 'PARA_LLEVAR'; $statusClass = strtolower(str_replace(' ', '-', $order->status->value)); @endphp
                 <tr data-search="{{ strtolower('#'.$order->id.' '.($isTakeaway?'para llevar':'mesa '.($order->tableSession?->restaurantTable?->number ?? ''))) }}">
                     <td><strong>#{{ $order->id }}</strong><small>{{ $order->created_at?->format('d/m/Y H:i') }}</small></td>
                     <td><span class="type-badge">{{ $isTakeaway ? '🥡 Para llevar' : '🪑 Mesa' }}</span></td>
@@ -25,7 +31,7 @@
                     <td>{{ $order->orderItems->sum('quantity') }} {{ $order->orderItems->sum('quantity') === 1 ? 'unidad' : 'unidades' }}</td>
                     <td><strong>${{ number_format($order->total, 0, ',', '.') }}</strong></td>
                     <td><span class="status status-order status-{{ $statusClass }}">{{ $order->status->value }}</span></td>
-                    <td class="actions-cell"><a class="button button-small" href="{{ route('admin.orders.show', $order) }}">Ver detalle</a></td>
+                    <td class="actions-cell"><a class="button button-small" href="{{ route('admin.orders.show', $order) }}">Ver detalle</a>@if(!$isTakeaway && $order->tableSession)<a class="button button-small" href="{{ route('admin.accounts.show',$order->tableSession) }}">Cuenta</a>@endif</td>
                 </tr>
             @empty
                 <tr><td colspan="7" class="empty-state"><h3>No hay pedidos para mostrar</h3><p>Prueba otro filtro o crea un pedido nuevo.</p><a class="button button-primary" href="{{ route('admin.orders.create') }}">Crear pedido</a></td></tr>
@@ -36,11 +42,21 @@
     </section>
 </div>
 <style>
-.orders-toolbar{display:flex;align-items:center;gap:8px}.admin-search{min-height:36px;width:190px;padding:7px 10px;border:1px solid #d4d4d1;border-radius:8px;background:#fff}.data-table tr[data-search][hidden]{display:none}.type-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:8px;background:#f5f5f3;font-size:.78rem;font-weight:700}.status-pendiente{background:#fff7df;color:#7b5b00}.status-preparando{background:#eef2ff;color:#3447a6}.status-listo{background:#e8f7ed;color:#176b38}.status-entregado{background:#f0f1f2;color:#4a4d50}.status-cancelado{background:#fff0f0;color:#9b2929}@media(max-width:900px){.orders-toolbar{align-items:stretch;flex-direction:column}.admin-search{width:100%}.orders-toolbar .filter-form{width:100%}.orders-toolbar .filter-form select{flex:1}}@media(max-width:560px){.orders-toolbar .filter-form{display:grid;grid-template-columns:1fr 1fr}.orders-toolbar .filter-form select{grid-column:1/-1}}
+.page-heading-actions{display:flex;gap:8px;flex-wrap:wrap}.pending-panel{margin-bottom:18px;border-color:#eadfbe}.pending-count{min-width:32px;height:32px;padding:0 10px;display:grid;place-items:center;border-radius:999px;background:#fff2c7;color:#7b5b00;font-weight:850}.pending-list{display:grid;gap:8px}.pending-empty{padding:16px;border:1px dashed #ddd;border-radius:10px;text-align:center;color:#888}.pending-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #eee0b7;border-radius:10px;background:#fffdf5}.pending-info strong,.pending-info span{display:block}.pending-info span{font-size:.76rem;color:#777;margin-top:2px}.pending-row .button{white-space:nowrap}.orders-toolbar{display:flex;align-items:center;gap:8px}.admin-search{min-height:36px;width:190px;padding:7px 10px;border:1px solid #d4d4d1;border-radius:8px;background:#fff}.data-table tr[data-search][hidden]{display:none}.type-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:8px;background:#f5f5f3;font-size:.78rem;font-weight:700}.status-pendiente{background:#fff7df;color:#7b5b00}.status-en-preparación{background:#eef2ff;color:#3447a6}.status-entregado{background:#f0f1f2;color:#4a4d50}.status-terminado{background:#e8f7ed;color:#176b38}@media(max-width:900px){.orders-toolbar{align-items:stretch;flex-direction:column}.admin-search{width:100%}.orders-toolbar .filter-form{width:100%}}@media(max-width:650px){.pending-row{align-items:stretch;flex-direction:column}.pending-row .button{width:100%}}@media(max-width:560px){.orders-toolbar .filter-form{display:grid;grid-template-columns:1fr 1fr}.orders-toolbar .filter-form select{grid-column:1/-1}}
 </style>
 <script>
 const orderSearch=document.getElementById('order-search'),ordersCount=document.getElementById('orders-count'),ordersEmpty=document.getElementById('orders-empty');
 function filterOrders(){const q=(orderSearch?.value||'').trim().toLowerCase();let shown=0;document.querySelectorAll('#orders-body tr[data-search]').forEach(row=>{const show=!q||row.dataset.search.includes(q);row.hidden=!show;if(show)shown++;});if(ordersCount)ordersCount.textContent=`${shown} ${shown===1?'pedido':'pedidos'} mostrados`;if(ordersEmpty)ordersEmpty.hidden=shown!==0;}
 orderSearch?.addEventListener('input',filterOrders);
+
+const pendingList=document.getElementById('pending-list'),pendingCount=document.getElementById('pending-count'),pendingSummary=document.getElementById('pending-summary'),soundToggle=document.getElementById('sound-toggle');
+let knownPendingIds=null, soundEnabled=false, audioContext=null;
+function unlockSound(){if(!audioContext) audioContext=new (window.AudioContext||window.webkitAudioContext)();if(audioContext.state==='suspended') audioContext.resume();soundEnabled=true;soundToggle.textContent='🔊 Sonido activado';}
+function playNotification(){if(!soundEnabled||!audioContext)return;const now=audioContext.currentTime;[0,0.16,0.32].forEach((offset,index)=>{const osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.type='sine';osc.frequency.value=880+(index*180);gain.gain.setValueAtTime(.0001,now+offset);gain.gain.exponentialRampToValueAtTime(.18,now+offset+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+offset+.13);osc.connect(gain);gain.connect(audioContext.destination);osc.start(now+offset);osc.stop(now+offset+.14);});}
+soundToggle?.addEventListener('click',unlockSound);
+async function refreshPending(){try{const response=await fetch('{{ route('admin.orders.pending') }}',{headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},cache:'no-store'});if(!response.ok)return;const data=await response.json();const ids=data.ids.map(Number);if(knownPendingIds!==null&&ids.some(id=>!knownPendingIds.includes(id)))playNotification();knownPendingIds=ids;pendingCount.textContent=data.count;pendingSummary.textContent=data.count?`${data.count} ${data.count===1?'pedido pendiente':'pedidos pendientes'} de impresión`:'No hay pedidos pendientes de impresión';if(!data.orders.length){pendingList.innerHTML='<div class="pending-empty">No hay pedidos pendientes de impresión.</div>';return;}pendingList.innerHTML=data.orders.map(order=>`<div class="pending-row"><div class="pending-info"><strong>${escapeHtml(order.location)}</strong><span>${escapeHtml(order.time||'')} · ${escapeHtml(order.responsible||'')}</span></div><a class="button button-primary" href="${printUrl(order.id)}">🖨️ Imprimir comandas</a></div>`).join('');}catch(error){console.warn('No se pudo actualizar la cola de pedidos.',error);}}
+function escapeHtml(value){return String(value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));}
+function printUrl(id){return `{{ url('/admin/orders') }}/${id}/print`;}
+refreshPending();setInterval(refreshPending,5000);
 </script>
 @endsection
