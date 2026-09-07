@@ -38,7 +38,11 @@ class TableGridTest extends TestCase
             ->assertSee('Mesa 1')
             ->assertSee('Mesa 41')
             ->assertSee('data-qr-url')
-            ->assertSee('aria-label="Abrir menú de mesa 1"')
-            ->assertSee('aria-label="Copiar enlace de mesa 1"');
+            ->assertSee('Abrir menú')
+            ->assertSee('Ver QR')
+            ->assertSee('Copiar enlace')
+            ->assertSee('Imprimir QR')
+            ->assertSee('Editar mesa')
+            ->assertSee('Eliminar mesa');
     }
 }
