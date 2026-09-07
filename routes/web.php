@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\ClientController;
 use App\Http\Controllers\Web\WaiterController;
+use App\Http\Controllers\Web\PrintController;
 use App\Http\Controllers\Web\Admin\DashboardController;
 use App\Http\Controllers\Web\Admin\OrderController;
 use App\Http\Controllers\Web\Admin\CategoryController;
@@ -16,7 +17,6 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.store');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-// Acceso público desde el QR de cada mesa.
 Route::get('/mesa/{token}', [ClientController::class, 'table'])->name('client.table');
 
 Route::middleware('auth')->group(function () {
@@ -24,7 +24,6 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:MESERO')
         ->name('waiter.orders');
 
-    // Creación manual de pedidos desde caja por ADMIN o MESERO.
     Route::get('/admin/orders/create', [OrderController::class, 'create'])
         ->middleware('role:ADMIN,MESERO')
         ->name('admin.orders.create');
@@ -33,10 +32,22 @@ Route::middleware('auth')->group(function () {
         ->name('admin.orders.store');
 
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware('role:ADMIN')->name('admin.dashboard');
-    Route::get('/admin/orders', [OrderController::class, 'index'])->name('admin.orders.index');
-    Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->name('admin.orders.show');
+    Route::get('/admin/orders', [OrderController::class, 'index'])->middleware('role:ADMIN')->name('admin.orders.index');
+    Route::get('/admin/orders/pending', [OrderController::class, 'pending'])->middleware('role:ADMIN')->name('admin.orders.pending');
+    Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->middleware('role:ADMIN')->name('admin.orders.show');
     Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:ADMIN,MESERO')->name('admin.orders.status');
     Route::put('/admin/orders/{order}/deliver', [OrderController::class, 'deliver'])->middleware('role:ADMIN,MESERO')->name('admin.orders.deliver');
+
+    Route::middleware('role:ADMIN')->group(function () {
+        Route::get('/admin/orders/{order}/print', [PrintController::class, 'orderPack'])->name('admin.orders.print');
+    });
+
+    Route::middleware('role:ADMIN,MESERO')->group(function () {
+        Route::get('/admin/table-sessions/{tableSession}/account', [PrintController::class, 'account'])->name('admin.accounts.show');
+        Route::get('/admin/table-sessions/{tableSession}/account/print', [PrintController::class, 'printAccount'])->name('admin.accounts.print');
+        Route::post('/admin/table-sessions/{tableSession}/pay', [PrintController::class, 'payTableSession'])->name('admin.accounts.pay');
+        Route::post('/admin/orders/{order}/pay', [PrintController::class, 'payOrder'])->name('admin.orders.pay');
+    });
 
     Route::middleware('role:ADMIN')->group(function () {
         Route::get('/admin/categories', [CategoryController::class, 'index'])->name('admin.categories.index');
