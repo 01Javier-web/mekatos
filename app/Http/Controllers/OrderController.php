@@ -7,6 +7,7 @@ use App\Enums\OrderType;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\TableSession;
+use App\Support\JuiceOptions;
 use App\TableSessionStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,9 @@ class OrderController extends Controller
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
             'items.*.notes' => ['nullable', 'string', 'max:500'],
+            'items.*.juice_preparation' => ['nullable', Rule::in([JuiceOptions::WATER, JuiceOptions::MILK])],
+            'items.*.juice_fruit' => ['nullable', Rule::in(array_keys(JuiceOptions::FRUITS))],
+            'items.*.juice_other_fruit' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -66,17 +70,30 @@ class OrderController extends Controller
             ]);
             $subtotal = 0;
             foreach ($validatedData['items'] as $item) {
-                $product = Product::query()->findOrFail($item['product_id']);
+                $product = Product::query()->with('category')->findOrFail($item['product_id']);
                 if (! $product->is_available) {
                     throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no está disponible."]]);
                 }
-                $lineTotal = $product->price * $item['quantity'];
+
+                $unitPrice = (int) $product->price;
+                $lineNotes = $item['notes'] ?? null;
+
+                if (JuiceOptions::isJuice($product)) {
+                    $unitPrice = JuiceOptions::price($item['juice_preparation'] ?? null);
+                    $lineNotes = JuiceOptions::buildNote(
+                        $item['juice_preparation'] ?? null,
+                        $item['juice_fruit'] ?? null,
+                        $item['juice_other_fruit'] ?? null,
+                    );
+                }
+
+                $lineTotal = $unitPrice * $item['quantity'];
                 $order->orderItems()->create([
                     'product_id' => $product->id,
                     'quantity' => $item['quantity'],
-                    'unit_price' => $product->price,
+                    'unit_price' => $unitPrice,
                     'total' => $lineTotal,
-                    'notes' => $item['notes'] ?? null,
+                    'notes' => $lineNotes,
                 ]);
                 $subtotal += $lineTotal;
             }
