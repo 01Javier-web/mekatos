@@ -11,6 +11,7 @@ use App\Http\Controllers\Web\Admin\CategoryController;
 use App\Http\Controllers\Web\Admin\ProductController;
 use App\Http\Controllers\Web\Admin\TableController;
 use App\Http\Controllers\Web\Admin\UserController;
+use App\Http\Controllers\Web\Admin\SalesReportController;
 
 Route::get('/', fn () => redirect()->route('login'));
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -25,6 +26,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/orders', [OrderController::class, 'store'])->middleware('role:ADMIN,MESERO')->name('admin.orders.store');
 
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware('role:ADMIN')->name('admin.dashboard');
+    Route::get('/admin/reports/daily', [SalesReportController::class, 'daily'])->middleware('role:ADMIN')->name('admin.reports.daily');
     Route::get('/admin/orders', [OrderController::class, 'index'])->middleware('role:ADMIN')->name('admin.orders.index');
     Route::get('/admin/orders/pending', [OrderController::class, 'pending'])->middleware('role:ADMIN')->name('admin.orders.pending');
     Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->middleware('role:ADMIN')->name('admin.orders.show');
