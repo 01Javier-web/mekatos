@@ -21,6 +21,8 @@ class Order extends Model
         'handled_by_user_id',
         'delivered_by_user_id',
         'delivered_at',
+        'paid_at',
+        'paid_by_user_id',
     ];
 
     public function tableSession(): BelongsTo
@@ -48,12 +50,18 @@ class Order extends Model
         return $this->belongsTo(User::class, 'delivered_by_user_id');
     }
 
+    public function paidBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'paid_by_user_id');
+    }
+
     protected function casts(): array
     {
         return [
             'type' => OrderType::class,
             'status' => OrderStatus::class,
             'delivered_at' => 'datetime',
+            'paid_at' => 'datetime',
             'subtotal' => 'decimal:2',
             'tax' => 'decimal:2',
             'total' => 'decimal:2',
