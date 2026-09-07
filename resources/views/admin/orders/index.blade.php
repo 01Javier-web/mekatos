@@ -5,40 +5,23 @@
     <div class="page-heading"><div><span class="eyebrow">Caja</span><h2>Pedidos</h2><p>Recibe pedidos, imprime las comandas y controla su estado.</p></div><div class="page-heading-actions"><button class="button" id="sound-toggle" type="button">🔊 Activar sonido</button><a class="button button-primary" href="{{ route('admin.orders.create') }}">+ Nuevo pedido</a></div></div>
     @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if ($errors->any())<div class="alert alert-error"><strong>No se pudo completar la acción.</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-
     <section class="panel pending-panel" id="pending-panel">
         <div class="panel-header"><div><h3>Pedidos pendientes de impresión</h3><span id="pending-summary">Buscando pedidos nuevos...</span></div><span class="pending-count" id="pending-count">0</span></div>
         <div id="pending-list" class="pending-list"><div class="pending-empty">No hay pedidos pendientes de impresión.</div></div>
     </section>
-
     <section class="panel">
         <div class="panel-header order-filter-header">
             <div><h3>Pedidos registrados</h3><span id="orders-count">{{ $orders->count() }} mostrados</span></div>
-            <div class="orders-toolbar">
-                <input id="order-search" class="admin-search" type="search" placeholder="Buscar # o mesa..." aria-label="Buscar pedidos">
-                <form method="GET" action="{{ route('admin.orders.index') }}" class="filter-form"><select name="status" aria-label="Filtrar por estado"><option value="">Todos los estados</option>@foreach ($statuses as $status)<option value="{{ $status->value }}" {{ $selectedStatus === $status->value ? 'selected' : '' }}>{{ $status->value }}</option>@endforeach</select><button class="button button-small" type="submit">Filtrar</button>@if($selectedStatus)<a class="button button-small" href="{{ route('admin.orders.index') }}">Limpiar</a>@endif</form>
-            </div>
+            <div class="orders-toolbar"><input id="order-search" class="admin-search" type="search" placeholder="Buscar # o mesa..." aria-label="Buscar pedidos"><form method="GET" action="{{ route('admin.orders.index') }}" class="filter-form"><select name="status" aria-label="Filtrar por estado"><option value="">Todos los estados</option>@foreach ($statuses as $status)<option value="{{ $status->value }}" {{ $selectedStatus === $status->value ? 'selected' : '' }}>{{ $status->value }}</option>@endforeach</select><button class="button button-small" type="submit">Filtrar</button>@if($selectedStatus)<a class="button button-small" href="{{ route('admin.orders.index') }}">Limpiar</a>@endif</form></div>
         </div>
-        <div class="table-wrap"><table class="data-table">
-            <thead><tr><th>Pedido</th><th>Tipo</th><th>Atención</th><th>Productos</th><th>Total</th><th>Estado</th><th class="actions-cell">Acciones</th></tr></thead>
-            <tbody id="orders-body">
+        <div class="table-wrap"><table class="data-table"><thead><tr><th>Pedido</th><th>Tipo</th><th>Atención</th><th>Productos</th><th>Total</th><th>Estado</th><th class="actions-cell">Acciones</th></tr></thead><tbody id="orders-body">
             @forelse ($orders as $order)
                 @php $isTakeaway = $order->type?->value === 'PARA_LLEVAR'; $statusClass = strtolower(str_replace(' ', '-', $order->status->value)); @endphp
-                <tr data-search="{{ strtolower('#'.$order->id.' '.($isTakeaway?'para llevar':'mesa '.($order->tableSession?->restaurantTable?->number ?? ''))) }}">
-                    <td><strong>#{{ $order->id }}</strong><small>{{ $order->created_at?->format('d/m/Y H:i') }}</small></td>
-                    <td><span class="type-badge">{{ $isTakeaway ? '🥡 Para llevar' : '🪑 Mesa' }}</span></td>
-                    <td>{{ $isTakeaway ? '—' : 'Mesa '.($order->tableSession?->restaurantTable?->number ?? '—') }}</td>
-                    <td>{{ $order->orderItems->sum('quantity') }} {{ $order->orderItems->sum('quantity') === 1 ? 'unidad' : 'unidades' }}</td>
-                    <td><strong>${{ number_format($order->total, 0, ',', '.') }}</strong></td>
-                    <td><span class="status status-order status-{{ $statusClass }}">{{ $order->status->value }}</span></td>
-                    <td class="actions-cell"><a class="button button-small" href="{{ route('admin.orders.show', $order) }}">Ver detalle</a>@if(!$isTakeaway && $order->tableSession)<a class="button button-small" href="{{ route('admin.accounts.show',$order->tableSession) }}">Cuenta</a>@endif</td>
-                </tr>
+                <tr data-search="{{ strtolower('#'.$order->id.' '.($isTakeaway?'para llevar':'mesa '.($order->tableSession?->restaurantTable?->number ?? ''))) }}"><td><strong>#{{ $order->id }}</strong><small>{{ $order->created_at?->format('d/m/Y H:i') }}</small></td><td><span class="type-badge">{{ $isTakeaway ? '🥡 Para llevar' : '🪑 Mesa' }}</span></td><td>{{ $isTakeaway ? '—' : 'Mesa '.($order->tableSession?->restaurantTable?->number ?? '—') }}</td><td>{{ $order->orderItems->sum('quantity') }} {{ $order->orderItems->sum('quantity') === 1 ? 'unidad' : 'unidades' }}</td><td><strong>${{ number_format($order->total, 0, ',', '.') }}</strong></td><td><span class="status status-order status-{{ $statusClass }}">{{ $order->status->value }}</span></td><td class="actions-cell"><a class="button button-small" href="{{ route('admin.orders.show', $order) }}">Ver detalle</a>@if(!$isTakeaway && $order->tableSession && $order->status !== \App\Enums\OrderStatus::COMPLETED)<a class="button button-small" href="{{ route('admin.accounts.show',$order->tableSession) }}">Cuenta</a>@endif</td></tr>
             @empty
                 <tr><td colspan="7" class="empty-state"><h3>No hay pedidos para mostrar</h3><p>Prueba otro filtro o crea un pedido nuevo.</p><a class="button button-primary" href="{{ route('admin.orders.create') }}">Crear pedido</a></td></tr>
             @endforelse
-            </tbody>
-        </table></div>
-        <div id="orders-empty" class="empty-state" hidden><h3>Sin resultados</h3><p>No encontramos pedidos con esa búsqueda.</p></div>
+        </tbody></table></div><div id="orders-empty" class="empty-state" hidden><h3>Sin resultados</h3><p>No encontramos pedidos con esa búsqueda.</p></div>
     </section>
 </div>
 <style>
@@ -48,13 +31,11 @@
 const orderSearch=document.getElementById('order-search'),ordersCount=document.getElementById('orders-count'),ordersEmpty=document.getElementById('orders-empty');
 function filterOrders(){const q=(orderSearch?.value||'').trim().toLowerCase();let shown=0;document.querySelectorAll('#orders-body tr[data-search]').forEach(row=>{const show=!q||row.dataset.search.includes(q);row.hidden=!show;if(show)shown++;});if(ordersCount)ordersCount.textContent=`${shown} ${shown===1?'pedido':'pedidos'} mostrados`;if(ordersEmpty)ordersEmpty.hidden=shown!==0;}
 orderSearch?.addEventListener('input',filterOrders);
-
-const pendingList=document.getElementById('pending-list'),pendingCount=document.getElementById('pending-count'),pendingSummary=document.getElementById('pending-summary'),soundToggle=document.getElementById('sound-toggle');
-let knownPendingIds=null, soundEnabled=false, audioContext=null;
-function unlockSound(){if(!audioContext) audioContext=new (window.AudioContext||window.webkitAudioContext)();if(audioContext.state==='suspended') audioContext.resume();soundEnabled=true;soundToggle.textContent='🔊 Sonido activado';}
-function playNotification(){if(!soundEnabled||!audioContext)return;const now=audioContext.currentTime;[0,0.16,0.32].forEach((offset,index)=>{const osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.type='sine';osc.frequency.value=880+(index*180);gain.gain.setValueAtTime(.0001,now+offset);gain.gain.exponentialRampToValueAtTime(.18,now+offset+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+offset+.13);osc.connect(gain);gain.connect(audioContext.destination);osc.start(now+offset);osc.stop(now+offset+.14);});}
+const pendingList=document.getElementById('pending-list'),pendingCount=document.getElementById('pending-count'),pendingSummary=document.getElementById('pending-summary'),soundToggle=document.getElementById('sound-toggle');let knownPendingIds=null,soundEnabled=false,audioContext=null;
+function unlockSound(){if(!audioContext)audioContext=new(window.AudioContext||window.webkitAudioContext)();if(audioContext.state==='suspended')audioContext.resume();soundEnabled=true;soundToggle.textContent='🔊 Sonido activado';}
+function playNotification(){if(!soundEnabled||!audioContext)return;const now=audioContext.currentTime;[0,.16,.32].forEach((offset,index)=>{const osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.type='sine';osc.frequency.value=880+(index*180);gain.gain.setValueAtTime(.0001,now+offset);gain.gain.exponentialRampToValueAtTime(.18,now+offset+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+offset+.13);osc.connect(gain);gain.connect(audioContext.destination);osc.start(now+offset);osc.stop(now+offset+.14);});}
 soundToggle?.addEventListener('click',unlockSound);
-async function refreshPending(){try{const response=await fetch('{{ route('admin.orders.pending') }}',{headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},cache:'no-store'});if(!response.ok)return;const data=await response.json();const ids=data.ids.map(Number);if(knownPendingIds!==null&&ids.some(id=>!knownPendingIds.includes(id)))playNotification();knownPendingIds=ids;pendingCount.textContent=data.count;pendingSummary.textContent=data.count?`${data.count} ${data.count===1?'pedido pendiente':'pedidos pendientes'} de impresión`:'No hay pedidos pendientes de impresión';if(!data.orders.length){pendingList.innerHTML='<div class="pending-empty">No hay pedidos pendientes de impresión.</div>';return;}pendingList.innerHTML=data.orders.map(order=>`<div class="pending-row"><div class="pending-info"><strong>${escapeHtml(order.location)}</strong><span>${escapeHtml(order.time||'')} · ${escapeHtml(order.responsible||'')}</span></div><a class="button button-primary" href="${printUrl(order.id)}">🖨️ Imprimir comandas</a></div>`).join('');}catch(error){console.warn('No se pudo actualizar la cola de pedidos.',error);}}
+async function refreshPending(){try{const response=await fetch('{{ route('admin.orders.pending') }}',{headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},cache:'no-store'});if(!response.ok)return;const data=await response.json(),ids=data.ids.map(Number);if(knownPendingIds!==null&&ids.some(id=>!knownPendingIds.includes(id)))playNotification();knownPendingIds=ids;pendingCount.textContent=data.count;pendingSummary.textContent=data.count?`${data.count} ${data.count===1?'pedido pendiente':'pedidos pendientes'} de impresión`:'No hay pedidos pendientes de impresión';if(!data.orders.length){pendingList.innerHTML='<div class="pending-empty">No hay pedidos pendientes de impresión.</div>';return;}pendingList.innerHTML=data.orders.map(order=>`<div class="pending-row"><div class="pending-info"><strong>${escapeHtml(order.location)}</strong><span>${escapeHtml(order.time||'')} · ${escapeHtml(order.responsible||'')}</span></div><a class="button button-primary" target="_blank" rel="noopener" href="${printUrl(order.id)}">🖨️ Imprimir comandas</a></div>`).join('');}catch(error){console.warn('No se pudo actualizar la cola de pedidos.',error);}}
 function escapeHtml(value){return String(value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));}
 function printUrl(id){return `{{ url('/admin/orders') }}/${id}/print`;}
 refreshPending();setInterval(refreshPending,5000);
