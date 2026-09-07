@@ -57,7 +57,7 @@ class PrintingAndPaymentTest extends TestCase
         }
 
         $response = $this->actingAs($admin)->get(route('admin.orders.print', $order));
-        $response->assertOk()->assertSee('COCINA')->assertSee('JUGOS')->assertSee('Hamburguesa de prueba')->assertSee('Jugo Natural Jarra - En Agua')->assertDontSee('Gaseosa 350 ml');
+        $response->assertOk()->assertSee('Cocina')->assertSee('Jugos')->assertSee('Hamburguesa de prueba')->assertSee('Jugo Natural Jarra - En Agua')->assertDontSee('Gaseosa 350 ml');
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => OrderStatus::PREPARING->value]);
     }
 
