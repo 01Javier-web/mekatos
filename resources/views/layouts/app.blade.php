@@ -14,6 +14,8 @@
         .main-nav .nav-primary[aria-current="page"]{background:#fff;color:#171717}
         .main-nav{row-gap:5px}
         .mobile-nav-toggle{align-items:center;gap:5px}
+        .stat-card strong{display:block}
+        .stat-card small{display:block;margin-top:6px;color:#777;font-size:.74rem;line-height:1.35}
         @media(max-width:980px){.header-inner{gap:12px}.main-nav a{padding-inline:8px}.user-chip{padding-inline:7px}}
         @media(max-width:760px){
             .header-inner{min-height:60px;width:min(100% - 24px,1240px)}
