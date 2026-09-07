@@ -33,19 +33,21 @@ class PrintController extends Controller
             ]);
         });
 
-        $order->load(['tableSession.restaurantTable', 'orderItems.product', 'handledBy']);
+        $order->load(['tableSession.restaurantTable', 'orderItems.product.category', 'handledBy']);
         $juiceItems = $order->orderItems->filter(fn ($item): bool =>
             str_starts_with(mb_strtolower($item->product?->name ?? ''), 'jugo')
         )->values();
         $kitchenItems = $order->orderItems->reject(fn ($item): bool =>
-            str_starts_with(mb_strtolower($item->product?->name ?? ''), 'jugo')
+            $this->isNonPreparedDrink($item) || str_starts_with(mb_strtolower($item->product?->name ?? ''), 'jugo')
         )->values();
 
-        return view('print.order-pack', [
-            'order' => $order,
-            'kitchenItems' => $kitchenItems,
-            'juiceItems' => $juiceItems,
-        ]);
+        return view('print.order-pack', compact('order', 'kitchenItems', 'juiceItems'));
+    }
+
+    private function isNonPreparedDrink($item): bool
+    {
+        $category = mb_strtolower($item->product?->category?->name ?? '');
+        return in_array($category, ['gaseosas y agua', 'cerveza'], true);
     }
 
     public function account(TableSession $tableSession): View
@@ -92,11 +94,7 @@ class PrintController extends Controller
             }
 
             foreach ($orders as $order) {
-                $order->update([
-                    'status' => OrderStatus::COMPLETED,
-                    'paid_at' => now(),
-                    'paid_by_user_id' => Auth::id(),
-                ]);
+                $order->update(['status' => OrderStatus::COMPLETED, 'paid_at' => now(), 'paid_by_user_id' => Auth::id()]);
                 $order->statusHistories()->create([
                     'previous_status' => OrderStatus::DELIVERED->value,
                     'new_status' => OrderStatus::COMPLETED->value,
