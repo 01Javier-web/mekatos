@@ -47,6 +47,21 @@ class InterfaceTest extends TestCase
         $this->get(route('admin.users.index'))->assertOk()->assertSee('Equipo de Mekatos');
     }
 
+    public function test_admin_can_access_waiter_interface(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('waiter.orders'))
+            ->assertOk()
+            ->assertSee('Panel de meseros')
+            ->assertSee('Pedidos activos')
+            ->assertSee('Nuevo pedido');
+    }
+
     public function test_waiter_interface_renders_for_waiter(): void
     {
         $waiter = User::factory()->create([
