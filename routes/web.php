@@ -16,26 +16,18 @@ Route::get('/', fn () => redirect()->route('login'));
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.store');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
-
 Route::get('/mesa/{token}', [ClientController::class, 'table'])->name('client.table');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/waiter/orders', [WaiterController::class, 'index'])
-        ->middleware('role:MESERO')
-        ->name('waiter.orders');
-
-    Route::get('/admin/orders/create', [OrderController::class, 'create'])
-        ->middleware('role:ADMIN,MESERO')
-        ->name('admin.orders.create');
-    Route::post('/admin/orders', [OrderController::class, 'store'])
-        ->middleware('role:ADMIN,MESERO')
-        ->name('admin.orders.store');
+    Route::get('/waiter/orders', [WaiterController::class, 'index'])->middleware('role:MESERO')->name('waiter.orders');
+    Route::get('/admin/orders/create', [OrderController::class, 'create'])->middleware('role:ADMIN,MESERO')->name('admin.orders.create');
+    Route::post('/admin/orders', [OrderController::class, 'store'])->middleware('role:ADMIN,MESERO')->name('admin.orders.store');
 
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware('role:ADMIN')->name('admin.dashboard');
     Route::get('/admin/orders', [OrderController::class, 'index'])->middleware('role:ADMIN')->name('admin.orders.index');
     Route::get('/admin/orders/pending', [OrderController::class, 'pending'])->middleware('role:ADMIN')->name('admin.orders.pending');
     Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->middleware('role:ADMIN')->name('admin.orders.show');
-    Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:ADMIN,MESERO')->name('admin.orders.status');
+    Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:ADMIN')->name('admin.orders.status');
     Route::put('/admin/orders/{order}/deliver', [OrderController::class, 'deliver'])->middleware('role:ADMIN,MESERO')->name('admin.orders.deliver');
 
     Route::middleware('role:ADMIN')->group(function () {
