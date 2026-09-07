@@ -109,8 +109,7 @@ class MekatosMenuSeeder extends Seeder
                 ['name' => 'Ensalada César', 'price' => 34000, 'description' => 'Lechuga, pollo, crotones de pan, salsa César, queso parmesano.'],
             ]],
             ['name' => 'Jugos y Bebidas Preparadas', 'description' => 'Jugos, limonada, Milo y bebidas preparadas.', 'sort_order' => 16, 'products' => [
-                ['name' => 'Jugo Natural Jarra - En Agua', 'price' => 8500],
-                ['name' => 'Jugo Natural Jarra - En Leche', 'price' => 9500],
+                ['name' => 'Jugo Natural Jarra', 'price' => 8500, 'description' => 'En agua $8.500 o en leche $9.500. Selecciona la fruta al pedir.'],
                 ['name' => 'Limonada Jarra', 'price' => 6500],
                 ['name' => 'Milo Jarra', 'price' => 10000],
                 ['name' => 'Tamarindo Preparada', 'price' => 5500],
@@ -123,7 +122,7 @@ class MekatosMenuSeeder extends Seeder
             ['name' => 'Cerveza', 'description' => 'Cerveza.', 'sort_order' => 18, 'products' => [
                 ['name' => 'Cerveza', 'price' => 5000],
             ]],
-            ['name' => 'Granizadas', 'description' => 'Granizadas.', 'sort_order' => 19, 'products' => [
+            ['name' => 'Granizadas', 'description' => 'Granizadas en agua.', 'sort_order' => 19, 'products' => [
                 ['name' => 'Granizada de Naranja', 'price' => 8500, 'description' => 'En agua.'],
                 ['name' => 'Granizada de Limón', 'price' => 8500, 'description' => 'En agua.'],
                 ['name' => 'Granizada de Lulo', 'price' => 8500, 'description' => 'En agua.'],
@@ -156,5 +155,18 @@ class MekatosMenuSeeder extends Seeder
                 );
             }
         }
+
+        $catalogNames = collect($categories)
+            ->flatMap(fn (array $category): array => array_column($category['products'], 'name'))
+            ->values()
+            ->all();
+
+        // Los productos que no pertenecen a la carta actual ya no se consideran
+        // parte del catálogo. Si tienen pedidos históricos, se conservan para
+        // no romper las relaciones; en caso contrario se eliminan.
+        Product::query()
+            ->whereNotIn('name', $catalogNames)
+            ->whereDoesntHave('orderItems')
+            ->delete();
     }
 }
