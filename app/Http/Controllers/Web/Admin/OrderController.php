@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\RestaurantTable;
 use App\Models\TableSession;
+use App\Support\JuiceOptions;
 use App\TableSessionStatus;
 use App\TableStatus;
 use Illuminate\Http\JsonResponse;
@@ -42,7 +43,21 @@ class OrderController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate(['type' => ['required', Rule::enum(OrderType::class)], 'table_id' => ['nullable', 'integer', 'exists:restaurant_tables,id'], 'items' => ['required', 'array'], 'items.*' => ['nullable', 'integer', 'min:0', 'max:99'], 'item_notes' => ['nullable', 'array'], 'item_notes.*' => ['nullable', 'string', 'max:500'], 'notes' => ['nullable', 'string', 'max:2000']]);
+        $validated = $request->validate([
+            'type' => ['required', Rule::enum(OrderType::class)],
+            'table_id' => ['nullable', 'integer', 'exists:restaurant_tables,id'],
+            'items' => ['required', 'array'],
+            'items.*' => ['nullable', 'integer', 'min:0', 'max:99'],
+            'item_notes' => ['nullable', 'array'],
+            'item_notes.*' => ['nullable', 'string', 'max:500'],
+            'juice_preparation' => ['nullable', 'array'],
+            'juice_preparation.*' => ['nullable', Rule::in([JuiceOptions::WATER, JuiceOptions::MILK])],
+            'juice_fruit' => ['nullable', 'array'],
+            'juice_fruit.*' => ['nullable', Rule::in(array_keys(JuiceOptions::FRUITS))],
+            'juice_other_fruit' => ['nullable', 'array'],
+            'juice_other_fruit.*' => ['nullable', 'string', 'max:100'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
         $validated['items'] = array_filter($validated['items'], static fn ($quantity): bool => (int) $quantity !== 0);
         $validated['items'] = validator(['items' => $validated['items']], ['items' => ['required', 'array', 'min:1'], 'items.*' => ['required', 'integer', 'min:1', 'max:99']])->validate()['items'];
         $type = OrderType::from($validated['type']);
@@ -60,10 +75,23 @@ class OrderController extends Controller
             $order = Order::create(['table_session_id' => $tableSession?->id, 'type' => $type, 'status' => OrderStatus::PENDING, 'subtotal' => 0, 'tax' => 0, 'total' => 0, 'notes' => $validated['notes'] ?? null, 'handled_by_user_id' => Auth::id()]);
             $subtotal = 0;
             foreach ($validated['items'] as $productId => $quantity) {
-                $product = Product::query()->findOrFail($productId);
+                $product = Product::query()->with('category')->findOrFail($productId);
                 if (! $product->is_available) throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no está disponible."]]);
-                $lineTotal = $product->price * $quantity;
-                $order->orderItems()->create(['product_id' => $product->id, 'quantity' => $quantity, 'unit_price' => $product->price, 'total' => $lineTotal, 'notes' => $validated['item_notes'][$productId] ?? null]);
+
+                $unitPrice = (int) $product->price;
+                $lineNotes = $validated['item_notes'][$productId] ?? null;
+
+                if (JuiceOptions::isJuice($product)) {
+                    $unitPrice = JuiceOptions::price($validated['juice_preparation'][$productId] ?? null);
+                    $lineNotes = JuiceOptions::buildNote(
+                        $validated['juice_preparation'][$productId] ?? null,
+                        $validated['juice_fruit'][$productId] ?? null,
+                        $validated['juice_other_fruit'][$productId] ?? null,
+                    );
+                }
+
+                $lineTotal = $unitPrice * $quantity;
+                $order->orderItems()->create(['product_id' => $product->id, 'quantity' => $quantity, 'unit_price' => $unitPrice, 'total' => $lineTotal, 'notes' => $lineNotes]);
                 $subtotal += $lineTotal;
             }
             $order->update(['subtotal' => $subtotal, 'tax' => 0, 'total' => $subtotal]);
