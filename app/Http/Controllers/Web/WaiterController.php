@@ -13,11 +13,7 @@ class WaiterController extends Controller
     {
         $orders = Order::query()
             ->with(['tableSession.restaurantTable', 'orderItems.product'])
-            ->whereIn('status', [
-                OrderStatus::PENDING,
-                OrderStatus::PREPARING,
-                OrderStatus::READY,
-            ])
+            ->whereIn('status', [OrderStatus::PENDING, OrderStatus::PREPARING, OrderStatus::DELIVERED])
             ->latest()
             ->get();
 
@@ -27,7 +23,7 @@ class WaiterController extends Controller
                 'total' => $orders->count(),
                 'pending' => $orders->where('status', OrderStatus::PENDING)->count(),
                 'preparing' => $orders->where('status', OrderStatus::PREPARING)->count(),
-                'ready' => $orders->where('status', OrderStatus::READY)->count(),
+                'delivered' => $orders->where('status', OrderStatus::DELIVERED)->count(),
             ],
         ]);
     }
