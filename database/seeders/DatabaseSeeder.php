@@ -72,6 +72,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->call(MekatosMenuSeeder::class);
+        $this->call(RestaurantTableSeeder::class);
     }
 
     private function seedUser(array $data): void
