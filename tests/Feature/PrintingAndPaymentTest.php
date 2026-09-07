@@ -47,7 +47,7 @@ class PrintingAndPaymentTest extends TestCase
     {
         $admin = $this->admin();
         $food = $this->product('Hamburguesa de prueba', 'Hamburguesas', 20000);
-        $juice = $this->product('Jugo Natural Jarra - En Agua', 'Jugos y Bebidas Preparadas', 8500);
+        $juice = $this->product('Jugo Natural Jarra', 'Jugos y Bebidas Preparadas', 8500);
         $soda = $this->product('Gaseosa 350 ml', 'Gaseosas y Agua', 4500);
         $table = RestaurantTable::create(['number' => 8, 'capacity' => 4, 'qr_token' => 'print-test-8', 'status' => TableStatus::OCCUPIED]);
         $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
@@ -57,7 +57,7 @@ class PrintingAndPaymentTest extends TestCase
         }
 
         $response = $this->actingAs($admin)->get(route('admin.orders.print', $order));
-        $response->assertOk()->assertSee('Cocina')->assertSee('Jugos')->assertSee('Hamburguesa de prueba')->assertSee('Jugo Natural Jarra - En Agua')->assertDontSee('Gaseosa 350 ml');
+        $response->assertOk()->assertSee('Cocina')->assertSee('Jugos')->assertSee('Hamburguesa de prueba')->assertSee('Jugo Natural Jarra')->assertDontSee('Gaseosa 350 ml');
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => OrderStatus::PREPARING->value]);
     }
 
