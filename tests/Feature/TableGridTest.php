@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\RestaurantTable;
 use App\Models\User;
 use App\UserRole;
 use Database\Seeders\RestaurantTableSeeder;
@@ -38,8 +37,8 @@ class TableGridTest extends TestCase
             ->assertSee('table-card-available')
             ->assertSee('Mesa 1')
             ->assertSee('Mesa 41')
-            ->assertSee('Ver QR')
-            ->assertSee('Abrir menú')
-            ->assertSee('Copiar enlace');
+            ->assertSee('data-qr-url')
+            ->assertSee('aria-label="Abrir menú de mesa 1"')
+            ->assertSee('aria-label="Copiar enlace de mesa 1"');
     }
 }
