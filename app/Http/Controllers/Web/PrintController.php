@@ -65,7 +65,13 @@ class PrintController extends Controller
             if ($session->status !== TableSessionStatus::Active) throw ValidationException::withMessages(['table' => ['La cuenta de esta mesa ya está cerrada.']]);
             $orders = $session->orders()->lockForUpdate()->where('status', '!=', OrderStatus::COMPLETED->value)->get();
             if ($orders->isEmpty()) throw ValidationException::withMessages(['table' => ['No hay pedidos pendientes de cobro en esta mesa.']]);
-            if ($orders->contains(fn (Order $order): bool => $order->status !== OrderStatus::DELIVERED)) throw ValidationException::withMessages(['status' => ['No se puede cerrar la cuenta mientras haya pedidos que todavía no estén ENTREGADOS.']]);
+            $notDelivered = $orders->filter(fn (Order $order): bool => $order->status !== OrderStatus::DELIVERED);
+            if ($notDelivered->isNotEmpty()) {
+                $blocked = $notDelivered->map(function (Order $order): string {
+                    return '#'.$order->id.' ('.$order->status?->value.')';
+                })->implode(', ');
+                throw ValidationException::withMessages(['status' => ["No se puede cerrar la cuenta. Los siguientes pedidos todavía no están ENTREGADOS: {$blocked}."]]);
+            }
             foreach ($orders as $order) {
                 $order->update(['status' => OrderStatus::COMPLETED, 'paid_at' => now(), 'paid_by_user_id' => Auth::id()]);
                 $order->statusHistories()->create(['previous_status' => OrderStatus::DELIVERED->value, 'new_status' => OrderStatus::COMPLETED->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
