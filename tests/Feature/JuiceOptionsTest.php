@@ -38,7 +38,7 @@ class JuiceOptionsTest extends TestCase
         ]);
     }
 
-    private function session(): TableSession
+    private function tableSession(): TableSession
     {
         $table = RestaurantTable::create([
             'number' => 1,
@@ -57,7 +57,7 @@ class JuiceOptionsTest extends TestCase
     public function test_api_creates_natural_juice_in_water_with_selected_fruit(): void
     {
         $juice = $this->juice();
-        $session = $this->session();
+        $session = $this->tableSession();
 
         $response = $this->postJson('/api/orders', [
             'table_session_id' => $session->id,
@@ -82,7 +82,7 @@ class JuiceOptionsTest extends TestCase
     public function test_api_prices_natural_juice_in_milk_at_nine_thousand_five_hundred(): void
     {
         $juice = $this->juice();
-        $session = $this->session();
+        $session = $this->tableSession();
 
         $response = $this->postJson('/api/orders', [
             'table_session_id' => $session->id,
@@ -109,7 +109,7 @@ class JuiceOptionsTest extends TestCase
     public function test_api_requires_details_when_juice_fruit_is_other(): void
     {
         $juice = $this->juice();
-        $session = $this->session();
+        $session = $this->tableSession();
 
         $response = $this->postJson('/api/orders', [
             'table_session_id' => $session->id,
