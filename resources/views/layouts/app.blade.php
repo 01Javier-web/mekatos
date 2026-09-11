@@ -7,7 +7,7 @@
     <title>@yield('title', 'Mekatos')</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <style>
-        :root{--mk-red:#BB2528;--mk-red-dark:#951d20;--mk-red-soft:#f7d9d6;--mk-mustard:#d6ad32;--mk-mustard-light:#f3d875;--mk-cream:#fff8df;--mk-ink:#2b2118;--mk-muted:#6f6254;--mk-border:#e2d5ae;--mk-card:#fffdf7}
+        :root{--mk-red:#BB2528;--mk-red-dark:#951d20;--mk-red-soft:#f7d9d6;--mk-mustard:#E3B83C;--mk-mustard-light:#f6d96c;--mk-cream:#fff8df;--mk-ink:#2b2118;--mk-muted:#6f6254;--mk-border:#e2d5ae;--mk-card:#fffdf7}
         body{background:var(--mk-mustard);color:var(--mk-ink)}
         .main-header{background:var(--mk-red);color:#fff;border-bottom:1px solid var(--mk-red-dark);box-shadow:0 5px 20px rgba(92,25,25,.22);backdrop-filter:saturate(120%) blur(8px)}
         .brand{color:#fff}.brand-mark{background:var(--mk-cream);color:var(--mk-red);box-shadow:0 2px 8px rgba(0,0,0,.12)}.brand small{color:#ffe9e6}
@@ -21,7 +21,7 @@
         .page-shell{padding-top:36px}.page-heading{margin-bottom:28px}.eyebrow{color:#675238}.page-heading h2{color:var(--mk-ink)}.page-heading p{color:#665b4d}
         .panel,.form-card{background:var(--mk-card);border-color:var(--mk-border);box-shadow:0 9px 28px rgba(83,58,15,.10)}
         .panel-header{border-bottom-color:#eadfbf}.panel-header h3{color:var(--mk-ink)}.panel-header span{color:var(--mk-muted)}
-        .data-table th{background:#f7edc9;color:#665238}.data-table td{border-bottom-color:#eadfbf}.data-table tbody tr:hover{background:#fff9e8}
+        .data-table th{background:#f8e7ae;color:#665238}.data-table td{border-bottom-color:#eadfbf}.data-table tbody tr:hover{background:#fff9e8}
         .button{border-color:#d7c89e;background:#fffdf7;color:var(--mk-ink);box-shadow:0 2px 5px rgba(70,48,10,.05)}.button:hover{background:#fff7df;border-color:#c9b77f}
         .button-primary{background:var(--mk-red);border-color:var(--mk-red);color:#fff;box-shadow:0 3px 8px rgba(122,25,25,.20)}.button-primary:hover{background:var(--mk-red-dark);color:#fff}
         .button-danger{border-color:#e1aaaa;color:var(--mk-red-dark);background:#fff8f7}.button-danger:hover{background:#ffeceb}
@@ -31,13 +31,13 @@
         .form-card input,.form-card select,.form-card textarea,.manual-order-form textarea,.filter-form select,.status-form select{border-color:#d7c89e;background:#fffdf7;color:var(--mk-ink)}
         .stat-card{background:var(--mk-card);border-color:var(--mk-border);box-shadow:0 7px 22px rgba(83,58,15,.09)}.stat-card:hover{box-shadow:0 11px 28px rgba(83,58,15,.14)}.stat-card span{color:#6f6254}.stat-card strong{color:var(--mk-red)}.stat-card small{display:block;margin-top:6px;color:#6f6254;font-size:.74rem;line-height:1.35}
         .status-order{background:#f7e8c4;color:#75551d}.status-active{background:#e8f4df;color:#315d24}.status-inactive{background:#eee7d4;color:#6b5d49}.status-role{background:#f2e8c8;color:#604a27}
-        .info-box{background:#f8edca;border-color:#e4d5a8}.muted,.history-item span{color:#6f6254}
+        .info-box{background:#f8e9b9;border-color:#e4d5a8}.muted,.history-item span{color:#6f6254}
         .waiter-card{background:var(--mk-card);border-color:var(--mk-border);box-shadow:0 7px 22px rgba(83,58,15,.09)}.waiter-card h3{color:var(--mk-red)}
-        .login-page{background:radial-gradient(circle at top,#fffdf4 0,#f2d46e 70%,#d6ad32 100%)}.login-card{background:var(--mk-card);border-color:var(--mk-border);box-shadow:0 18px 55px rgba(83,58,15,.18)}.login-brand{color:var(--mk-red)}.login-card h1{color:var(--mk-ink)}.login-subtitle,.login-eyebrow{color:#6f6254}.login-form input{border-color:#d7c89e;background:#fffdf7}.login-button{background:var(--mk-red);border-color:var(--mk-red)}.login-button:hover{background:var(--mk-red-dark)}
+        .login-page{background:radial-gradient(circle at top,#fffdf4 0,#f4d46a 70%,#E3B83C 100%)}.login-card{background:var(--mk-card);border-color:var(--mk-border);box-shadow:0 18px 55px rgba(83,58,15,.18)}.login-brand{color:var(--mk-red)}.login-card h1{color:var(--mk-ink)}.login-subtitle,.login-eyebrow{color:#6f6254}.login-form input{border-color:#d7c89e;background:#fffdf7}.login-button{background:var(--mk-red);border-color:var(--mk-red)}.login-button:hover{background:var(--mk-red-dark)}
         .client-page{min-height:100vh;background:var(--mk-mustard)}.client-header{background:var(--mk-red);color:#fff;box-shadow:0 4px 18px rgba(92,25,25,.22)}.client-header span{color:#ffe9e6}.client-hero h1{color:var(--mk-ink)}.client-hero p{color:#665b4d}
         .menu-section-heading{border-bottom-color:#d8c78f}.menu-section-heading h2{color:var(--mk-ink)}.menu-section-heading p{color:#6f6254}
         .product-card{background:var(--mk-card);border-color:var(--mk-border);box-shadow:0 7px 20px rgba(83,58,15,.09)}.product-card:hover{box-shadow:0 12px 28px rgba(83,58,15,.14)}.product-card h3{color:var(--mk-ink)}.product-card p{color:#6f6254}.product-card strong{color:var(--mk-red)}.product-card .button{background:var(--mk-red);border-color:var(--mk-red);color:#fff}.product-card .button:hover{background:var(--mk-red-dark);color:#fff}
-        .cart-panel,.confirmation-card,.client-confirm-card{background:var(--mk-card)}.cart-panel-header h2,.client-confirm-card h2,.confirmation-card h2{color:var(--mk-ink)}.cart-item,.confirm-summary{border-color:#eadfbf}.cart-total{border-top-color:#d9c99d}.confirm-total{background:#f7edc9}.confirmation-icon{background:#edf7e8;color:#315d24}
+        .cart-panel,.confirmation-card,.client-confirm-card{background:var(--mk-card)}.cart-panel-header h2,.client-confirm-card h2,.confirmation-card h2{color:var(--mk-ink)}.cart-item,.confirm-summary{border-color:#eadfbf}.cart-total{border-top-color:#d9c99d}.confirm-total{background:#f8e7ae}.confirmation-icon{background:#edf7e8;color:#315d24}
         .client-feedback .client-toast{background:#33271d}.client-toast-icon{color:var(--mk-red)}.client-toast-error{background:#8f2527}
         @media(max-width:980px){.header-inner{gap:12px}.main-nav a{padding-inline:8px}.user-chip{padding-inline:7px}}
         @media(max-width:760px){
