@@ -40,6 +40,9 @@
         .cart-panel,.confirmation-card,.client-confirm-card{background:var(--mk-card)}.cart-panel-header h2,.client-confirm-card h2,.confirmation-card h2{color:var(--mk-ink)}.cart-item,.confirm-summary{border-color:#eadfbf}.cart-total{border-top-color:#d9c99d}.confirm-total{background:#f8e7ae}.confirmation-icon{background:#edf7e8;color:#315d24}
         .client-feedback .client-toast{background:#33271d}.client-toast-icon{color:var(--mk-red)}.client-toast-error{background:#8f2527}
         .tables-legend{padding-left:6px}
+        /* Mantener las esquinas redondeadas durante el hover y evitar que el fondo de los elementos hijos las tape. */
+        .panel,.form-card,.stat-card,.waiter-card,.product-card,.cart-panel,.confirmation-card,.client-confirm-card{border-radius:12px;overflow:hidden}
+        .panel:hover,.form-card:hover,.stat-card:hover,.waiter-card:hover,.product-card:hover,.cart-panel:hover,.confirmation-card:hover,.client-confirm-card:hover{border-radius:12px}
         @media(max-width:980px){.header-inner{gap:12px}.main-nav a{padding-inline:8px}.user-chip{padding-inline:7px}}
         @media(max-width:760px){
             .header-inner{min-height:60px;width:min(100% - 24px,1240px)}
