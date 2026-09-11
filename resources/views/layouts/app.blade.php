@@ -10,7 +10,7 @@
         :root{--mk-red:#BB2528;--mk-red-dark:#951d20;--mk-red-soft:#f7d9d6;--mk-mustard:#E3B83C;--mk-mustard-light:#f6d96c;--mk-cream:#fff8df;--mk-ink:#2b2118;--mk-muted:#6f6254;--mk-border:#e2d5ae;--mk-card:#fffdf7}
         body{background:var(--mk-mustard);color:var(--mk-ink)}
         .main-header{background:var(--mk-red);color:#fff;border-bottom:1px solid var(--mk-red-dark);box-shadow:0 5px 20px rgba(92,25,25,.22);backdrop-filter:saturate(120%) blur(8px)}
-        .brand{color:#fff;margin-left:-4px;align-items:center;align-self:center}.brand-mark{background:var(--mk-cream);color:var(--mk-red);box-shadow:0 2px 8px rgba(0,0,0,.12)}.brand small{color:#ffe9e6}
+        .brand{color:#fff;margin-left:-4px;align-items:center;align-self:center}.brand-mark{background:#fff;color:var(--mk-red);box-shadow:0 2px 8px rgba(0,0,0,.12)}.brand small{color:#ffe9e6}
         .main-nav a{color:#fff4f2}.main-nav a:hover,.main-nav a:focus-visible{color:#fff;background:rgba(255,255,255,.14)}
         .main-nav .nav-primary{background:#fff;color:var(--mk-red);font-weight:850;box-shadow:0 2px 7px rgba(70,15,15,.15)}.main-nav .nav-primary:hover{background:#fff;color:var(--mk-red-dark)}
         .main-nav a[aria-current="page"]{color:#fff;background:rgba(255,255,255,.16);font-weight:800}.main-nav .nav-primary[aria-current="page"]{background:#fff;color:var(--mk-red)}
@@ -40,7 +40,6 @@
         .cart-panel,.confirmation-card,.client-confirm-card{background:var(--mk-card)}.cart-panel-header h2,.client-confirm-card h2,.confirmation-card h2{color:var(--mk-ink)}.cart-item,.confirm-summary{border-color:#eadfbf}.cart-total{border-top-color:#d9c99d}.confirm-total{background:#f8e7ae}.confirmation-icon{background:#edf7e8;color:#315d24}
         .client-feedback .client-toast{background:#33271d}.client-toast-icon{color:var(--mk-red)}.client-toast-error{background:#8f2527}
         .tables-legend{padding-left:6px}
-        /* Mantener las esquinas redondeadas durante el hover y evitar que el fondo de los elementos hijos las tape. */
         .panel,.form-card,.stat-card,.waiter-card,.product-card,.cart-panel,.confirmation-card,.client-confirm-card{border-radius:12px;overflow:hidden}
         .panel:hover,.form-card:hover,.stat-card:hover,.waiter-card:hover,.product-card:hover,.cart-panel:hover,.confirmation-card:hover,.client-confirm-card:hover{border-radius:12px}
         @media(max-width:980px){.header-inner{gap:12px}.main-nav a{padding-inline:8px}.user-chip{padding-inline:7px}}
