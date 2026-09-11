@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#f3a6a6">
+    <meta name="theme-color" content="#BB2528">
     <title>@yield('title', 'Mekatos')</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <style>
         :root{--mk-ink:#171717;--mk-muted:#737373;--mk-border:#e6e6e3;--mk-soft:#fff3cf;--mk-card:#fffdf5}
         body{background:#fff3cf}
-        .main-header{background:#f3a6a6;color:#3a1717;border-bottom-color:#e7aaaa;box-shadow:0 4px 18px rgba(80,30,30,.12);backdrop-filter:saturate(120%) blur(8px)}
+        .main-header{background:#BB2528;color:#3a1717;border-bottom-color:#e7aaaa;box-shadow:0 4px 18px rgba(80,30,30,.12);backdrop-filter:saturate(120%) blur(8px)}
         .brand{color:#3a1717}.brand-mark{background:#fff8df;color:#8f3b3b}.brand small{color:#714848}
         .main-nav a{color:#552525}.main-nav a:hover,.main-nav a:focus-visible{color:#3a1717;background:#efbcbc}
         .main-nav .nav-primary{background:#fff8df;color:#5a2525}.main-nav .nav-primary:hover{background:#fffdf0;color:#4b1d1d}
@@ -26,7 +26,7 @@
         @media(max-width:760px){
             .header-inner{min-height:60px;width:min(100% - 24px,1240px)}
             .mobile-nav-toggle{display:inline-flex;margin-left:auto}
-            .main-nav{display:none;position:absolute;left:12px;right:12px;top:58px;padding:10px;background:#f3a6a6;border:1px solid #d78f8f;border-radius:14px;box-shadow:0 18px 45px rgba(80,30,30,.28)}
+            .main-nav{display:none;position:absolute;left:12px;right:12px;top:58px;padding:10px;background:#BB2528;border:1px solid #d78f8f;border-radius:14px;box-shadow:0 18px 45px rgba(80,30,30,.28)}
             .main-nav.is-open{display:grid;grid-template-columns:1fr 1fr;gap:5px}
             .main-nav a,.main-nav .nav-primary{padding:11px 12px;text-align:left}
             .main-nav .nav-primary{grid-column:1/-1}
