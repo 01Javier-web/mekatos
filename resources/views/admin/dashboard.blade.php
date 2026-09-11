@@ -14,7 +14,6 @@
         <a class="stat-card" href="{{ route('admin.tables.index') }}"><span>Mesas</span><strong>{{ $tablesCount }}</strong><small>Gestiona estado y QR</small></a>
         <a class="stat-card" href="{{ route('admin.users.index') }}"><span>Usuarios</span><strong>{{ $usersCount }}</strong><small>Personal con acceso</small></a>
     </div>
-    <section class="quick-actions" aria-label="Acciones rápidas"><a href="{{ route('admin.orders.create') }}"><span>＋</span><div><strong>Nuevo pedido</strong><small>Crear desde caja</small></div></a><a href="{{ route('admin.orders.index') }}"><span>↗</span><div><strong>Ver pedidos</strong><small>Revisar operación</small></div></a><a href="{{ route('admin.products.index') }}"><span>▦</span><div><strong>Menú</strong><small>Gestionar productos</small></div></a><a href="{{ route('admin.tables.index') }}"><span>⌑</span><div><strong>Mesas</strong><small>Estado y QR</small></div></a></section>
     <section class="panel dashboard-panel"><div class="panel-header order-filter-header"><div><h3>Pedidos recientes</h3><span>Los últimos pedidos registrados en el sistema.</span></div><a class="button button-small" href="{{ route('admin.orders.index') }}">Ver todos</a></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Pedido</th><th>Atención</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
         @forelse ($recentOrders as $order)
             @php $isTakeaway = $order->type?->value === 'PARA_LLEVAR'; @endphp
