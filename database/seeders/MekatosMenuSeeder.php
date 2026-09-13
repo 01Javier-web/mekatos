@@ -19,9 +19,9 @@ class MekatosMenuSeeder extends Seeder
 
         $categories = [
             ['name' => 'Pollo', 'description' => 'Pollo broaster y alitas BBQ.', 'sort_order' => 1, 'products' => [
-                ['name' => 'Pollo Broaster', 'price' => 59000, 'description' => 'Papas a la francesa, arepa frita y miel.'],
-                ['name' => '1/2 Pollo Broaster', 'price' => 31000],
-                ['name' => '1/4 Pollo Broaster', 'price' => 18500],
+                ['name' => '1/4 Pollo Broaster', 'price' => 18500, 'description' => 'Papas a la francesa, arepa frita y miel.'],
+                ['name' => '1/2 Pollo Broaster', 'price' => 31000, 'description' => 'Papas a la francesa, arepa frita y miel.'],
+                ['name' => 'Pollo Broaster Completo', 'price' => 59000, 'description' => 'Pollo broaster completo. Papas a la francesa, arepa frita y miel.'],
                 ['name' => 'Alitas BBQ', 'price' => 29000, 'description' => '7 coditos bañados en salsa BBQ acompañados de papa a la francesa o papa criolla y huevos de codorniz.'],
             ]],
             ['name' => 'Patacones', 'description' => 'Patacones de la casa.', 'sort_order' => 2, 'products' => [

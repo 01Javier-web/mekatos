@@ -2,7 +2,7 @@
 @section('title', 'Productos | Mekatos')
 @section('content')
 <div class="page-shell">
-    <div class="page-heading"><div><span class="eyebrow">Administración</span><h2>Productos</h2><p>Administra el catálogo que aparece en el menú y en los pedidos.</p></div><a class="button button-primary" href="{{ route('admin.products.create') }}">+ Nuevo producto</a></div>
+    <div class="page-heading"><div><span class="eyebrow">Administración</span><h2>Productos</h2><p>Administra el catálogo que aparece en el menú y en los pedidos.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><a class="button" href="{{ route('admin.juice-fruits.index') }}">Frutas de jugos</a><a class="button button-primary" href="{{ route('admin.products.create') }}">+ Nuevo producto</a></div></div>
     @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if ($errors->any())<div class="alert alert-error"><strong>Revisa los datos:</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
     <section class="panel">
