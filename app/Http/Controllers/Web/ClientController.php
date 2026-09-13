@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Support\JuiceOptions;
 use Illuminate\View\View;
 
 class ClientController extends Controller
 {
     public function table(string $token): View
     {
-        return view('client.menu', compact('token'));
+        return view('client.menu', [
+            'token' => $token,
+            'juiceFruits' => JuiceOptions::availableFruits(),
+        ]);
     }
 }
