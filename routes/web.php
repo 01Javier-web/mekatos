@@ -12,6 +12,7 @@ use App\Http\Controllers\Web\Admin\ProductController;
 use App\Http\Controllers\Web\Admin\TableController;
 use App\Http\Controllers\Web\Admin\UserController;
 use App\Http\Controllers\Web\Admin\SalesReportController;
+use App\Http\Controllers\Web\Admin\JuiceFruitController;
 
 Route::get('/', fn () => redirect()->route('login'));
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -58,6 +59,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin/products/{product}/edit', [ProductController::class, 'edit'])->name('admin.products.edit');
         Route::put('/admin/products/{product}', [ProductController::class, 'update'])->name('admin.products.update');
         Route::delete('/admin/products/{product}', [ProductController::class, 'destroy'])->name('admin.products.destroy');
+
+        Route::get('/admin/juice-fruits', [JuiceFruitController::class, 'index'])->name('admin.juice-fruits.index');
+        Route::put('/admin/juice-fruits/{juiceFruit}/toggle', [JuiceFruitController::class, 'toggle'])->name('admin.juice-fruits.toggle');
 
         Route::get('/admin/tables', [TableController::class, 'index'])->name('admin.tables.index');
         Route::get('/admin/tables/create', [TableController::class, 'create'])->name('admin.tables.create');
