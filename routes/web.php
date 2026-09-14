@@ -29,7 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/reports/daily', [SalesReportController::class, 'daily'])->middleware('role:ADMIN')->name('admin.reports.daily');
     Route::post('/admin/reports/daily/close', [SalesReportController::class, 'closeDay'])->middleware('role:ADMIN')->name('admin.reports.daily.close');
     Route::get('/admin/orders', [OrderController::class, 'index'])->middleware('role:ADMIN')->name('admin.orders.index');
-    Route::get('/admin/orders/pending', [OrderController::class, 'pending'])->middleware('role:ADMIN')->name('admin.orders.pending');
+    Route::get('/admin/orders/pending', [OrderController::class, 'pending'])->middleware('role:ADMIN,MESERO')->name('admin.orders.pending');
     Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->middleware('role:ADMIN')->name('admin.orders.show');
     Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:ADMIN')->name('admin.orders.status');
     Route::put('/admin/orders/{order}/deliver', [OrderController::class, 'deliver'])->middleware('role:ADMIN,MESERO')->name('admin.orders.deliver');
