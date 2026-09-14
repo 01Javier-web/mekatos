@@ -30,6 +30,10 @@ class SalesReportController extends Controller
                 Order::query()->whereIn('id', $orderIds)->delete();
             }
 
+            // El ID interno vuelve a comenzar en 1 para la nueva jornada.
+            // Se mantiene separado de cualquier numeración comercial futura.
+            DB::statement('ALTER TABLE orders AUTO_INCREMENT = 1');
+
             DB::table('table_sessions')->delete();
             RestaurantTable::query()->update(['status' => 'AVAILABLE']);
         });
