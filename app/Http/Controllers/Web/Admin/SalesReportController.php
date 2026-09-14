@@ -32,7 +32,11 @@ class SalesReportController extends Controller
 
             // El ID interno vuelve a comenzar en 1 para la nueva jornada.
             // Se mantiene separado de cualquier numeración comercial futura.
-            DB::statement('ALTER TABLE orders AUTO_INCREMENT = 1');
+            if (DB::getDriverName() === 'sqlite') {
+                DB::statement("DELETE FROM sqlite_sequence WHERE name = 'orders'");
+            } else {
+                DB::statement('ALTER TABLE orders AUTO_INCREMENT = 1');
+            }
 
             DB::table('table_sessions')->delete();
             RestaurantTable::query()->update(['status' => 'AVAILABLE']);
