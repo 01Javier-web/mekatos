@@ -15,6 +15,8 @@ class MenuController extends Controller
             }
         ])->get();
 
-        return response()->json($categories);
+        return response()->json([
+            'categories' => $categories,
+        ]);
     }
 }
