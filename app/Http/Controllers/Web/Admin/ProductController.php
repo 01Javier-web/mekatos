@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Support\BeverageOptions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -50,6 +51,7 @@ class ProductController extends Controller
         return view('admin.products.edit', [
             'product' => $product,
             'categories' => Category::query()->orderBy('name')->get(),
+            'hasBeverageOptions' => BeverageOptions::hasOptions($product),
         ]);
     }
 
