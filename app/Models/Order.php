@@ -15,6 +15,7 @@ class Order extends Model
         'type',
         'status',
         'subtotal',
+        'packaging_fee',
         'tax',
         'total',
         'notes',
@@ -63,6 +64,7 @@ class Order extends Model
             'delivered_at' => 'datetime',
             'paid_at' => 'datetime',
             'subtotal' => 'decimal:2',
+            'packaging_fee' => 'decimal:2',
             'tax' => 'decimal:2',
             'total' => 'decimal:2',
         ];
