@@ -68,6 +68,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/admin/tables', [TableController::class, 'store'])->name('admin.tables.store');
         Route::get('/admin/tables/{restaurantTable}/edit', [TableController::class, 'edit'])->name('admin.tables.edit');
         Route::put('/admin/tables/{restaurantTable}', [TableController::class, 'update'])->name('admin.tables.update');
+        Route::post('/admin/tables/{restaurantTable}/release', [TableController::class, 'release'])->name('admin.tables.release');
         Route::delete('/admin/tables/{restaurantTable}', [TableController::class, 'destroy'])->name('admin.tables.destroy');
 
         Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
