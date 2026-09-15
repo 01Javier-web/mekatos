@@ -15,8 +15,23 @@ class TableController extends Controller
 {
     public function index(): View
     {
+        $host = $requestHost = request()->getHost();
+
+        if (in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+            $resolvedHost = gethostbyname(gethostname());
+            if ($resolvedHost !== gethostname()) {
+                $host = $resolvedHost;
+            }
+        }
+
+        $qrBaseUrl = request()->getScheme().'://'.$host;
+        if (request()->getPort() && !in_array(request()->getPort(), [80, 443], true)) {
+            $qrBaseUrl .= ':'.request()->getPort();
+        }
+
         return view('admin.tables.index', [
             'tables' => RestaurantTable::query()->orderBy('number')->get(),
+            'qrBaseUrl' => $qrBaseUrl,
         ]);
     }
 
