@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\RestaurantTable;
 use App\Models\TableSession;
+use App\Support\BeverageOptions;
 use App\Support\JuiceOptions;
 use App\TableSessionStatus;
 use App\TableStatus;
@@ -34,13 +35,12 @@ class OrderController extends Controller
             'items.*.juice_preparation' => ['nullable', Rule::in([JuiceOptions::WATER, JuiceOptions::MILK])],
             'items.*.juice_fruit' => ['nullable', Rule::in(array_keys(JuiceOptions::FRUITS))],
             'items.*.juice_other_fruit' => ['nullable', 'string', 'max:100'],
+            'items.*.beverage_option' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $type = OrderType::from($validatedData['type'] ?? OrderType::TABLE->value);
         $tableSessionId = $validatedData['table_session_id'] ?? null;
-        // El cliente QR actualmente envía "token". También aceptamos "table_token"
-        // para mantener compatibilidad con otros consumidores de la API.
         $tableToken = $validatedData['table_token'] ?? $validatedData['token'] ?? null;
 
         if ($type === OrderType::TABLE && ! $tableSessionId && ! $tableToken) {
@@ -64,25 +64,10 @@ class OrderController extends Controller
         }
 
         if ($type === OrderType::TABLE && ! $tableSessionId) {
-            $table = RestaurantTable::query()
-                ->where('qr_token', $tableToken)
-                ->first();
-
-            if (! $table) {
-                throw ValidationException::withMessages(['table_token' => ['La mesa indicada no existe.']]);
-            }
-
-            $session = $table->tableSessions()
-                ->where('status', TableSessionStatus::Active)
-                ->first();
-
-            if (! $session) {
-                $session = $table->tableSessions()->create([
-                    'status' => TableSessionStatus::Active,
-                    'started_at' => now(),
-                ]);
-            }
-
+            $table = RestaurantTable::query()->where('qr_token', $tableToken)->first();
+            if (! $table) throw ValidationException::withMessages(['table_token' => ['La mesa indicada no existe.']]);
+            $session = $table->tableSessions()->where('status', TableSessionStatus::Active)->first();
+            if (! $session) $session = $table->tableSessions()->create(['status' => TableSessionStatus::Active, 'started_at' => now()]);
             $tableSessionId = $session->id;
             $table->update(['status' => TableStatus::OCCUPIED]);
         }
@@ -101,40 +86,25 @@ class OrderController extends Controller
             $subtotal = 0;
             foreach ($validatedData['items'] as $item) {
                 $product = Product::query()->with('category')->findOrFail($item['product_id']);
-                if (! $product->is_available) {
-                    throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no está disponible."]]);
-                }
+                if (! $product->is_available) throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no está disponible."]]);
 
                 $unitPrice = (int) $product->price;
                 $lineNotes = $item['notes'] ?? null;
-
                 if (JuiceOptions::isJuice($product)) {
                     $unitPrice = JuiceOptions::price($item['juice_preparation'] ?? null);
-                    $lineNotes = JuiceOptions::buildNote(
-                        $item['juice_preparation'] ?? null,
-                        $item['juice_fruit'] ?? null,
-                        $item['juice_other_fruit'] ?? null,
-                        $item['notes'] ?? null,
-                    );
+                    $lineNotes = JuiceOptions::buildNote($item['juice_preparation'] ?? null, $item['juice_fruit'] ?? null, $item['juice_other_fruit'] ?? null, $item['notes'] ?? null);
+                } elseif (BeverageOptions::hasOptions($product)) {
+                    $lineNotes = BeverageOptions::buildNote($product, $item['beverage_option'] ?? null, $item['notes'] ?? null);
+                } elseif (! empty($item['beverage_option'])) {
+                    throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no admite una opción de bebida."]]);
                 }
 
                 $lineTotal = $unitPrice * $item['quantity'];
-                $order->orderItems()->create([
-                    'product_id' => $product->id,
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $unitPrice,
-                    'total' => $lineTotal,
-                    'notes' => $lineNotes,
-                ]);
+                $order->orderItems()->create(['product_id' => $product->id, 'quantity' => $item['quantity'], 'unit_price' => $unitPrice, 'total' => $lineTotal, 'notes' => $lineNotes]);
                 $subtotal += $lineTotal;
             }
             $order->update(['subtotal' => $subtotal, 'tax' => 0, 'total' => $subtotal]);
-            $order->statusHistories()->create([
-                'previous_status' => null,
-                'new_status' => OrderStatus::PENDING->value,
-                'changed_by_user_id' => Auth::id(),
-                'changed_at' => now(),
-            ]);
+            $order->statusHistories()->create(['previous_status' => null, 'new_status' => OrderStatus::PENDING->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
             return $order;
         });
 
@@ -144,22 +114,11 @@ class OrderController extends Controller
 
     public function deliver(Order $order): JsonResponse
     {
-        if ($order->status !== OrderStatus::PREPARING) {
-            throw ValidationException::withMessages(['status' => ['El pedido debe estar EN PREPARACIÓN para poder entregarse.']]);
-        }
+        if ($order->status !== OrderStatus::PREPARING) throw ValidationException::withMessages(['status' => ['El pedido debe estar EN PREPARACIÓN para poder entregarse.']]);
         $previousStatus = $order->status;
         DB::transaction(function () use ($order, $previousStatus) {
-            $order->update([
-                'status' => OrderStatus::DELIVERED,
-                'delivered_by_user_id' => Auth::id(),
-                'delivered_at' => now(),
-            ]);
-            $order->statusHistories()->create([
-                'previous_status' => $previousStatus->value,
-                'new_status' => OrderStatus::DELIVERED->value,
-                'changed_by_user_id' => Auth::id(),
-                'changed_at' => now(),
-            ]);
+            $order->update(['status' => OrderStatus::DELIVERED, 'delivered_by_user_id' => Auth::id(), 'delivered_at' => now()]);
+            $order->statusHistories()->create(['previous_status' => $previousStatus->value, 'new_status' => OrderStatus::DELIVERED->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
         });
         $order->load(['orderItems.product', 'statusHistories', 'tableSession.restaurantTable', 'deliveredBy']);
         return response()->json(['message' => 'Pedido entregado exitosamente', 'order' => $order]);
