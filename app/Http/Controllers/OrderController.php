@@ -6,9 +6,11 @@ use App\Enums\OrderStatus;
 use App\Enums\OrderType;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\RestaurantTable;
 use App\Models\TableSession;
 use App\Support\JuiceOptions;
 use App\TableSessionStatus;
+use App\TableStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -36,9 +38,10 @@ class OrderController extends Controller
 
         $type = OrderType::from($validatedData['type'] ?? OrderType::TABLE->value);
         $tableSessionId = $validatedData['table_session_id'] ?? null;
+        $tableToken = $validatedData['table_token'] ?? null;
 
-        if ($type === OrderType::TABLE && ! $tableSessionId) {
-            throw ValidationException::withMessages(['table_session_id' => ['Los pedidos en mesa requieren una sesión activa.']]);
+        if ($type === OrderType::TABLE && ! $tableSessionId && ! $tableToken) {
+            throw ValidationException::withMessages(['table_token' => ['Los pedidos en mesa requieren identificar la mesa.']]);
         }
         if ($type === OrderType::TAKEAWAY && $tableSessionId) {
             throw ValidationException::withMessages(['table_session_id' => ['Un pedido para llevar no puede estar asociado a una mesa.']]);
@@ -52,9 +55,33 @@ class OrderController extends Controller
             if ($session->status !== TableSessionStatus::Active) {
                 throw ValidationException::withMessages(['table_session_id' => ['La sesión de la mesa no está activa.']]);
             }
-            if (! empty($validatedData['table_token']) && (! $session->restaurantTable || $session->restaurantTable->qr_token !== $validatedData['table_token'])) {
+            if ($tableToken && (! $session->restaurantTable || $session->restaurantTable->qr_token !== $tableToken)) {
                 throw ValidationException::withMessages(['table_token' => ['La mesa no coincide con la sesión indicada.']]);
             }
+        }
+
+        if ($type === OrderType::TABLE && ! $tableSessionId) {
+            $table = RestaurantTable::query()
+                ->where('qr_token', $tableToken)
+                ->first();
+
+            if (! $table) {
+                throw ValidationException::withMessages(['table_token' => ['La mesa indicada no existe.']]);
+            }
+
+            $session = $table->tableSessions()
+                ->where('status', TableSessionStatus::Active)
+                ->first();
+
+            if (! $session) {
+                $session = $table->tableSessions()->create([
+                    'status' => TableSessionStatus::Active,
+                    'started_at' => now(),
+                ]);
+            }
+
+            $tableSessionId = $session->id;
+            $table->update(['status' => TableStatus::OCCUPIED]);
         }
 
         $order = DB::transaction(function () use ($validatedData, $type, $tableSessionId) {
