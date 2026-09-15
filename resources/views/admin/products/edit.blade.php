@@ -25,6 +25,13 @@
                 <a class="button" href="{{ route('admin.juice-fruits.index') }}">Administrar frutas disponibles</a>
             </section>
         @endif
+        @if ($hasBeverageOptions ?? false)
+            <section class="juice-settings-card">
+                <div class="form-section-title"><strong>Configuración de opciones</strong><span>Controla qué opciones se pueden pedir.</span></div>
+                <p class="field-help juice-settings-description">Si una opción se agota, puedes desactivarla aquí. Solo esa opción dejará de aparecer en el menú QR.</p>
+                <a class="button" href="{{ route('admin.beverage-options.index', $product) }}">Administrar opciones disponibles</a>
+            </section>
+        @endif
         <div class="form-actions"><a class="button" href="{{ route('admin.products.index') }}">Cancelar</a><button class="button button-primary" type="submit" id="save-product">Guardar cambios</button></div>
     </form>
 </div>
