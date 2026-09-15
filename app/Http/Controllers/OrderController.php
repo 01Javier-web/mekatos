@@ -26,6 +26,7 @@ class OrderController extends Controller
             'type' => ['nullable', Rule::enum(OrderType::class)],
             'table_session_id' => ['nullable', 'integer', 'exists:table_sessions,id'],
             'table_token' => ['nullable', 'string', 'max:255'],
+            'token' => ['nullable', 'string', 'max:255'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
@@ -38,7 +39,9 @@ class OrderController extends Controller
 
         $type = OrderType::from($validatedData['type'] ?? OrderType::TABLE->value);
         $tableSessionId = $validatedData['table_session_id'] ?? null;
-        $tableToken = $validatedData['table_token'] ?? null;
+        // El cliente QR actualmente envía "token". También aceptamos "table_token"
+        // para mantener compatibilidad con otros consumidores de la API.
+        $tableToken = $validatedData['table_token'] ?? $validatedData['token'] ?? null;
 
         if ($type === OrderType::TABLE && ! $tableSessionId && ! $tableToken) {
             throw ValidationException::withMessages(['table_token' => ['Los pedidos en mesa requieren identificar la mesa.']]);
