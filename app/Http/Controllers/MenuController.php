@@ -11,7 +11,11 @@ class MenuController extends Controller
     {
         $categories = Category::with([
             'products' => function ($query) {
-                $query->where('is_available', true);
+                $query->where('is_available', true)->with([
+                    'beverageOptions' => function ($options) {
+                        $options->where('is_available', true);
+                    },
+                ]);
             }
         ])->get();
 
