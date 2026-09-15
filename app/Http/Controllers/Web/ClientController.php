@@ -10,7 +10,7 @@ class ClientController extends Controller
 {
     public function table(string $token): View
     {
-        return view('client.menu-v2', [
+        return view('client.menu', [
             'token' => $token,
             'juiceFruits' => JuiceOptions::availableFruits(),
         ]);
