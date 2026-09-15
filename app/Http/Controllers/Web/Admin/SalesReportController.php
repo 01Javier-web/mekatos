@@ -30,17 +30,18 @@ class SalesReportController extends Controller
                 Order::query()->whereIn('id', $orderIds)->delete();
             }
 
-            // El ID interno vuelve a comenzar en 1 para la nueva jornada.
-            // Se mantiene separado de cualquier numeración comercial futura.
-            if (DB::getDriverName() === 'sqlite') {
-                DB::statement("DELETE FROM sqlite_sequence WHERE name = 'orders'");
-            } else {
-                DB::statement('ALTER TABLE orders AUTO_INCREMENT = 1');
-            }
-
             DB::table('table_sessions')->delete();
             RestaurantTable::query()->update(['status' => 'AVAILABLE']);
         });
+
+        // MySQL ejecuta ALTER TABLE como una operación que confirma la transacción
+        // implícitamente, por eso el reinicio del autoincremento debe hacerse fuera
+        // del bloque DB::transaction(). SQLite se maneja de forma equivalente.
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement("DELETE FROM sqlite_sequence WHERE name = 'orders'");
+        } else {
+            DB::statement('ALTER TABLE orders AUTO_INCREMENT = 1');
+        }
 
         return view('admin.reports.daily', $report + ['closed' => true]);
     }
