@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\RestaurantTable;
+use App\TableSessionStatus;
 use App\TableStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -15,7 +17,7 @@ class TableController extends Controller
 {
     public function index(): View
     {
-        $host = $requestHost = request()->getHost();
+        $host = request()->getHost();
 
         if (in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
             $resolvedHost = gethostbyname(gethostname());
@@ -77,6 +79,34 @@ class TableController extends Controller
         $restaurantTable->update($validated);
 
         return redirect()->route('admin.tables.index')->with('success', 'Mesa actualizada exitosamente.');
+    }
+
+    public function release(RestaurantTable $restaurantTable): RedirectResponse
+    {
+        $session = $restaurantTable->tableSessions()
+            ->where('status', TableSessionStatus::Active)
+            ->first();
+
+        if ($session && $session->orders()->exists()) {
+            return redirect()->route('admin.tables.index')
+                ->with('error', 'No se puede liberar esta mesa porque tiene pedidos asociados.');
+        }
+
+        DB::transaction(function () use ($restaurantTable, $session): void {
+            if ($session) {
+                $session->update([
+                    'status' => TableSessionStatus::CLOSED,
+                    'ended_at' => now(),
+                ]);
+            }
+
+            $restaurantTable->update([
+                'status' => TableStatus::AVAILABLE,
+            ]);
+        });
+
+        return redirect()->route('admin.tables.index')
+            ->with('success', "Mesa {$restaurantTable->number} marcada como libre.");
     }
 
     public function destroy(RestaurantTable $restaurantTable): RedirectResponse
