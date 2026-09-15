@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\RestaurantTable;
 use App\Models\TableSession;
+use App\Support\BeverageOptions;
 use App\Support\JuiceOptions;
 use App\TableSessionStatus;
 use App\TableStatus;
@@ -56,6 +57,8 @@ class OrderController extends Controller
             'juice_fruit.*' => ['nullable', Rule::in(array_keys(JuiceOptions::FRUITS))],
             'juice_other_fruit' => ['nullable', 'array'],
             'juice_other_fruit.*' => ['nullable', 'string', 'max:100'],
+            'beverage_option' => ['nullable', 'array'],
+            'beverage_option.*' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
         $validated['items'] = array_filter($validated['items'], static fn ($quantity): bool => (int) $quantity !== 0);
@@ -80,18 +83,18 @@ class OrderController extends Controller
 
                 $unitPrice = (int) $product->price;
                 $lineNotes = $validated['item_notes'][$productId] ?? null;
-
                 if (JuiceOptions::isJuice($product)) {
                     $preparation = $validated['juice_preparation'][$productId] ?? null;
                     $fruit = $validated['juice_fruit'][$productId] ?? null;
                     $otherFruit = $validated['juice_other_fruit'][$productId] ?? null;
                     $details = $lineNotes;
-                    if ($fruit === JuiceOptions::OTHER && trim((string) $otherFruit) === '') {
-                        $otherFruit = $details;
-                        $details = null;
-                    }
+                    if ($fruit === JuiceOptions::OTHER && trim((string) $otherFruit) === '') { $otherFruit = $details; $details = null; }
                     $unitPrice = JuiceOptions::price($preparation);
                     $lineNotes = JuiceOptions::buildNote($preparation, $fruit, $otherFruit, $details);
+                } elseif (BeverageOptions::hasOptions($product)) {
+                    $lineNotes = BeverageOptions::buildNote($product, $validated['beverage_option'][$productId] ?? null, $lineNotes);
+                } elseif (! empty($validated['beverage_option'][$productId])) {
+                    throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no admite una opción de bebida."]]);
                 }
 
                 $lineTotal = $unitPrice * $quantity;
