@@ -12,6 +12,13 @@ class BeverageCatalogSeeder extends Seeder
 {
     public function run(): void
     {
+        // Conserva el mismo producto existente al actualizar el nombre del tamarindo.
+        $oldTamarindo = Product::query()->where('name', 'Tamarindo Preparada')->first();
+        $newTamarindo = Product::query()->where('name', 'Tamarindo preparada (con limon)')->first();
+        if ($oldTamarindo && ! $newTamarindo) {
+            $oldTamarindo->update(['name' => 'Tamarindo preparada (con limon)']);
+        }
+
         $categories = [
             'Jugos y Bebidas Preparadas' => [
                 'description' => 'Jugos, bebidas preparadas y otras bebidas.',
@@ -20,7 +27,7 @@ class BeverageCatalogSeeder extends Seeder
                     ['name' => 'Jugo Natural Jarra', 'price' => 8500, 'description' => 'En agua $8.500 o en leche $9.500. Selecciona la fruta al pedir.'],
                     ['name' => 'Limonada Jarra', 'price' => 6500],
                     ['name' => 'Milo Jarra', 'price' => 10000],
-                    ['name' => 'Tamarindo Preparada', 'price' => 5500],
+                    ['name' => 'Tamarindo preparada (con limon)', 'price' => 5500],
                     ['name' => 'Jugos Hit', 'price' => 4500],
                 ],
             ],
