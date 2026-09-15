@@ -58,20 +58,19 @@ class BeverageCatalogSeeder extends Seeder
             );
 
             foreach ($categoryData['products'] as $productData) {
-                Product::updateOrCreate(
-                    ['name' => $productData['name']],
-                    [
-                        'category_id' => $category->id,
-                        'description' => $productData['description'] ?? null,
-                        'price' => $productData['price'],
-                        'image_path' => null,
-                        'is_available' => true,
-                    ]
-                );
+                $product = Product::firstOrNew(['name' => $productData['name']]);
+                $product->category_id = $category->id;
+                if (array_key_exists('description', $productData)) {
+                    $product->description = $productData['description'];
+                }
+                $product->price = $productData['price'];
+                if (! $product->exists) {
+                    $product->is_available = true;
+                }
+                $product->save();
             }
         }
 
-        // Evita mostrar los nombres antiguos del catálogo de bebidas.
         Product::query()->whereIn('name', ['Gaseosa 1.5', 'Agua Botella'])->update(['is_available' => false]);
 
         foreach (BeverageOptions::PRODUCTS as $productName => $optionNames) {
