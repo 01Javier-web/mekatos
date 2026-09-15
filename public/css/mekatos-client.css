@@ -1,0 +1,27 @@
+/* Identidad visual del menú QR de Mekatos */
+.client-page{background:#fff8df!important;color:#2b2118!important}
+.client-header{background:#BB2528!important;border-bottom:3px solid #E3B83C!important}
+.client-header strong,.client-header span{color:#fff!important}
+.client-header span{opacity:.9}
+.client-header .button-primary{background:#E3B83C!important;border-color:#E3B83C!important;color:#2b2118!important}
+.client-hero h1,.menu-section-heading h2,.product-card h3,.cart-panel-header h2,.juice-modal-card h2,.client-confirm-card h2{color:#951d20!important}
+.eyebrow{color:#951d20!important}
+.client-hero p,.menu-section-heading p{color:#6b5940!important}
+.client-tools{background:#fff8df!important}
+.menu-search{border-color:#e2d5ae!important;background:#fffdf7!important;color:#2b2118!important}
+.category-nav a{border-color:#e2d5ae!important;background:#fffdf7!important;color:#951d20!important}
+.category-nav a:hover,.category-nav a.active{background:#BB2528!important;border-color:#BB2528!important;color:#fff!important}
+.product-card{background:#fffdf7!important;border-color:#e2d5ae!important}
+.product-card .product-category-mark{background:#E3B83C!important;color:#2b2118!important}
+.product-card strong{color:#951d20!important}
+.product-card .button-primary{background:#BB2528!important;border-color:#BB2528!important;color:#fff!important}
+.product-card .button-primary:hover{background:#951d20!important}
+.cart-drawer,.cart-panel,.juice-modal-card,.client-confirm-card,.confirmation-card{background:#fffdf7!important}
+.cart-total strong{color:#951d20!important}
+.qty button,.item-note textarea,.client-notes textarea,.juice-field select,.juice-field input{border-color:#e2d5ae!important;background:#fff!important;color:#2b2118!important}
+.juice-options,.juice-config,.cart-note-preview{background:#fff8df!important;border-color:#e2d5ae!important}
+.client-submit,.confirm-actions .button-primary,.juice-modal-actions .button-primary,.confirmation-card .button-primary{background:#BB2528!important;border-color:#BB2528!important;color:#fff!important}
+.search-empty{background:#fffdf7!important;border-color:#e2d5ae!important}
+.client-footer{color:#795f38!important}
+.confirmation-icon{background:#fff0bd!important;color:#951d20!important}
+.client-page .button:focus-visible,.client-page input:focus-visible,.client-page textarea:focus-visible,.client-page select:focus-visible,.client-page a:focus-visible{outline-color:rgba(187,37,40,.35)!important}
