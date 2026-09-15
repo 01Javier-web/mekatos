@@ -9,26 +9,16 @@ use Illuminate\Validation\ValidationException;
 class BeverageOptions
 {
     public const PRODUCTS = [
-        'Gaseosa 350 ml' => [
-            'Coca-Cola', 'Colombiana', 'Manzana', 'Tamarindo',
-        ],
-        'Gaseosa 400 ml' => [
-            'Coca-Cola', 'Coca-Cola Zero', 'Quatro', 'Soda',
-        ],
-        'Gaseosa 1.5 L' => [
-            'Quatro', 'Colombiana', 'Manzana', 'Ginger', 'Coca-Cola', 'Soda',
-        ],
-        'Jugos Hit' => [
-            'Frutos tropicales', 'Naranja piña', 'Mora', 'Mango',
-        ],
-        'Cerveza' => [
-            'Águila Light', 'Poker',
-        ],
+        'Gaseosa 350 ml' => ['Coca-Cola', 'Colombiana', 'Manzana', 'Tamarindo'],
+        'Gaseosa 400 ml' => ['Coca-Cola', 'Coca-Cola Zero', 'Quatro', 'Soda'],
+        'Gaseosa 1.5 L' => ['Quatro', 'Colombiana', 'Manzana', 'Ginger', 'Coca-Cola', 'Soda'],
+        'Jugos Hit' => ['Frutos tropicales', 'Naranja piña', 'Mora', 'Mango'],
+        'Cerveza' => ['Águila Light', 'Poker'],
     ];
 
     public static function hasOptions(Product $product): bool
     {
-        return array_key_exists($product->name, self::PRODUCTS);
+        return $product->beverageOptions()->exists();
     }
 
     public static function optionNames(string $productName): array
@@ -38,10 +28,6 @@ class BeverageOptions
 
     public static function availableFor(Product $product): array
     {
-        if (! self::hasOptions($product)) {
-            return [];
-        }
-
         return BeverageOption::query()
             ->where('product_id', $product->id)
             ->where('is_available', true)
@@ -56,13 +42,18 @@ class BeverageOptions
 
         if (! self::hasOptions($product)) {
             if ($option !== '') {
-                throw ValidationException::withMessages(['items' => ['El producto seleccionado no admite una opción de bebida.']]);
+                throw ValidationException::withMessages([
+                    'items' => ['El producto seleccionado no admite una opción de bebida.'],
+                ]);
             }
+
             return '';
         }
 
         if ($option === '') {
-            throw ValidationException::withMessages(['items' => ["Selecciona una opción para '{$product->name}'."]]);
+            throw ValidationException::withMessages([
+                'items' => ["Selecciona una opción para '{$product->name}'."],
+            ]);
         }
 
         $available = BeverageOption::query()
@@ -72,7 +63,9 @@ class BeverageOptions
             ->exists();
 
         if (! $available) {
-            throw ValidationException::withMessages(['items' => ["La opción '{$option}' para '{$product->name}' ya no está disponible."]]);
+            throw ValidationException::withMessages([
+                'items' => ["La opción '{$option}' para '{$product->name}' ya no está disponible."],
+            ]);
         }
 
         return $option;
