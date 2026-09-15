@@ -27,6 +27,7 @@ class BeverageCatalogSeeder extends Seeder
                     ['name' => 'Jugo Natural Jarra', 'price' => 8500, 'description' => 'En agua $8.500 o en leche $9.500. Selecciona la fruta al pedir.'],
                     ['name' => 'Limonada Jarra', 'price' => 6500],
                     ['name' => 'Milo Jarra', 'price' => 10000],
+                    ['name' => 'Soda preparada', 'price' => 5500],
                     ['name' => 'Tamarindo preparada (con limon)', 'price' => 5500],
                     ['name' => 'Jugos Hit', 'price' => 4500],
                 ],
