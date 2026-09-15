@@ -10,6 +10,7 @@ use App\Models\RestaurantTable;
 use App\Models\TableSession;
 use App\Support\BeverageOptions;
 use App\Support\JuiceOptions;
+use App\Support\TakeawayPackaging;
 use App\TableSessionStatus;
 use App\TableStatus;
 use Illuminate\Http\JsonResponse;
@@ -78,12 +79,14 @@ class OrderController extends Controller
                 'type' => $type,
                 'status' => OrderStatus::PENDING,
                 'subtotal' => 0,
+                'packaging_fee' => 0,
                 'tax' => 0,
                 'total' => 0,
                 'notes' => $validatedData['notes'] ?? null,
                 'handled_by_user_id' => Auth::id(),
             ]);
             $subtotal = 0;
+            $packagingFee = 0;
             foreach ($validatedData['items'] as $item) {
                 $product = Product::query()->with('category')->findOrFail($item['product_id']);
                 if (! $product->is_available) throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no está disponible."]]);
@@ -99,11 +102,13 @@ class OrderController extends Controller
                     throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no admite una opción de bebida."]]);
                 }
 
-                $lineTotal = $unitPrice * $item['quantity'];
-                $order->orderItems()->create(['product_id' => $product->id, 'quantity' => $item['quantity'], 'unit_price' => $unitPrice, 'total' => $lineTotal, 'notes' => $lineNotes]);
+                $quantity = (int) $item['quantity'];
+                $lineTotal = $unitPrice * $quantity;
+                $packagingFee += TakeawayPackaging::fee($product, $quantity, $type->value);
+                $order->orderItems()->create(['product_id' => $product->id, 'quantity' => $quantity, 'unit_price' => $unitPrice, 'total' => $lineTotal, 'notes' => $lineNotes]);
                 $subtotal += $lineTotal;
             }
-            $order->update(['subtotal' => $subtotal, 'tax' => 0, 'total' => $subtotal]);
+            $order->update(['subtotal' => $subtotal, 'packaging_fee' => $packagingFee, 'tax' => 0, 'total' => $subtotal + $packagingFee]);
             $order->statusHistories()->create(['previous_status' => null, 'new_status' => OrderStatus::PENDING->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
             return $order;
         });
