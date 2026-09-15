@@ -26,4 +26,9 @@ class Product extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+
+    public function beverageOptions(): HasMany
+    {
+        return $this->hasMany(BeverageOption::class)->orderBy('sort_order');
+    }
 }
