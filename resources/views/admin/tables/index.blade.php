@@ -39,7 +39,7 @@
         <div id="table-grid" class="table-grid">
             @forelse ($tables as $table)
                 @php
-                    $qrUrl = url('/mesa/'.$table->qr_token);
+                    $qrUrl = rtrim($qrBaseUrl, '/').'/mesa/'.$table->qr_token;
                     $isAvailable = $table->status->value === 'AVAILABLE';
                     $statusLabel = match($table->status->value) {
                         'AVAILABLE' => 'Libre',
@@ -50,33 +50,15 @@
                         default => $table->status->value,
                     };
                 @endphp
-                <button
-                    type="button"
-                    class="table-card {{ $isAvailable ? 'table-card-available' : 'table-card-unavailable' }}"
-                    data-search="{{ strtolower($table->number.' '.($table->name ?? '').' '.$table->status->value) }}"
-                    data-status="{{ $table->status->value }}"
-                    data-table-number="{{ $table->number }}"
-                    data-table-name="{{ $table->name ?: 'Mesa '.$table->number }}"
-                    data-table-status="{{ $statusLabel }}"
-                    data-table-capacity="{{ $table->capacity ?? '' }}"
-                    data-qr-url="{{ $qrUrl }}"
-                >
+                <button type="button" class="table-card {{ $isAvailable ? 'table-card-available' : 'table-card-unavailable' }}" data-search="{{ strtolower($table->number.' '.($table->name ?? '').' '.$table->status->value) }}" data-status="{{ $table->status->value }}" data-table-number="{{ $table->number }}" data-table-name="{{ $table->name ?: 'Mesa '.$table->number }}" data-table-status="{{ $statusLabel }}" data-table-capacity="{{ $table->capacity ?? '' }}" data-qr-url="{{ $qrUrl }}">
                     <span class="table-card-number">Mesa {{ $table->number }}</span>
                     <span class="table-card-status"><i class="table-status-dot"></i>{{ $statusLabel }}</span>
                 </button>
             @empty
-                <div class="empty-state tables-empty-initial">
-                    <h3>No hay mesas</h3>
-                    <p>Crea las mesas del restaurante para habilitar los accesos QR.</p>
-                    <a class="button button-primary" href="{{ route('admin.tables.create') }}">Nueva mesa</a>
-                </div>
+                <div class="empty-state tables-empty-initial"><h3>No hay mesas</h3><p>Crea las mesas del restaurante para habilitar los accesos QR.</p><a class="button button-primary" href="{{ route('admin.tables.create') }}">Nueva mesa</a></div>
             @endforelse
         </div>
-
-        <div id="tables-empty" class="empty-state" hidden>
-            <h3>Sin resultados</h3>
-            <p>No encontramos mesas con esos filtros.</p>
-        </div>
+        <div id="tables-empty" class="empty-state" hidden><h3>Sin resultados</h3><p>No encontramos mesas con esos filtros.</p></div>
     </section>
 </div>
 
@@ -85,36 +67,14 @@
     <section class="table-dialog" role="dialog" aria-modal="true" aria-labelledby="table-dialog-title">
         <button type="button" class="table-dialog-close" data-table-close aria-label="Cerrar">&times;</button>
         <span class="eyebrow">Detalle de mesa</span>
-        <div class="table-dialog-heading">
-            <div>
-                <h3 id="table-dialog-title">Mesa</h3>
-                <span id="table-dialog-status" class="table-dialog-status"></span>
-            </div>
-            <div id="table-dialog-capacity" class="table-dialog-capacity"></div>
-        </div>
-
+        <div class="table-dialog-heading"><div><h3 id="table-dialog-title">Mesa</h3><span id="table-dialog-status" class="table-dialog-status"></span></div><div id="table-dialog-capacity" class="table-dialog-capacity"></div></div>
         <div class="table-detail-grid">
-            <a id="table-menu" class="table-detail-action" href="#" target="_blank" rel="noopener">
-                <span class="action-icon">↗</span><span><strong>Abrir menú</strong><small>Ver el menú de esta mesa</small></span>
-            </a>
-            <button id="table-qr" type="button" class="table-detail-action">
-                <span class="action-icon">▣</span><span><strong>Ver QR</strong><small>Mostrar código de acceso</small></span>
-            </button>
-            <button id="table-copy" type="button" class="table-detail-action">
-                <span class="action-icon">⧉</span><span><strong>Copiar enlace</strong><small>Copiar acceso al menú</small></span>
-            </button>
-            <button id="table-print" type="button" class="table-detail-action">
-                <span class="action-icon">🖨</span><span><strong>Imprimir QR</strong><small>Imprimir código de acceso</small></span>
-            </button>
-            <a id="table-edit" class="table-detail-action" href="#">
-                <span class="action-icon">✎</span><span><strong>Editar mesa</strong><small>Modificar sus datos</small></span>
-            </a>
-            <form id="table-delete-form" method="POST" action="#" onsubmit="return confirm('¿Eliminar esta mesa? Esta acción no se puede deshacer.')">
-                @csrf @method('DELETE')
-                <button type="submit" class="table-detail-action table-detail-danger">
-                    <span class="action-icon">⌫</span><span><strong>Eliminar mesa</strong><small>Eliminar definitivamente</small></span>
-                </button>
-            </form>
+            <a id="table-menu" class="table-detail-action" href="#" target="_blank" rel="noopener"><span class="action-icon">↗</span><span><strong>Abrir menú</strong><small>Ver el menú de esta mesa</small></span></a>
+            <button id="table-qr" type="button" class="table-detail-action"><span class="action-icon">▣</span><span><strong>Ver QR</strong><small>Mostrar código de acceso</small></span></button>
+            <button id="table-copy" type="button" class="table-detail-action"><span class="action-icon">⧉</span><span><strong>Copiar enlace</strong><small>Copiar acceso al menú</small></span></button>
+            <button id="table-print" type="button" class="table-detail-action"><span class="action-icon">🖨</span><span><strong>Imprimir QR</strong><small>Imprimir código de acceso</small></span></button>
+            <a id="table-edit" class="table-detail-action" href="#"><span class="action-icon">✎</span><span><strong>Editar mesa</strong><small>Modificar sus datos</small></span></a>
+            <form id="table-delete-form" method="POST" action="#" onsubmit="return confirm('¿Eliminar esta mesa? Esta acción no se puede deshacer.')">@csrf @method('DELETE')<button type="submit" class="table-detail-action table-detail-danger"><span class="action-icon">⌫</span><span><strong>Eliminar mesa</strong><small>Eliminar definitivamente</small></span></button></form>
         </div>
     </section>
 </div>
@@ -123,15 +83,9 @@
     <div class="qr-backdrop" data-qr-close></div>
     <section class="qr-dialog" role="dialog" aria-modal="true" aria-labelledby="qr-title">
         <button type="button" class="qr-close" data-qr-close aria-label="Cerrar">&times;</button>
-        <span class="eyebrow">Acceso del cliente</span>
-        <h3 id="qr-title">QR de la mesa</h3>
-        <p id="qr-subtitle">Escanea este código para abrir el menú.</p>
-        <div id="qr-code" class="qr-code" aria-label="Código QR"></div>
-        <div class="qr-url" id="qr-url-text"></div>
-        <div class="qr-dialog-actions">
-            <button type="button" class="button button-primary" id="qr-print">Imprimir QR</button>
-            <button type="button" class="button" data-qr-close>Cerrar</button>
-        </div>
+        <span class="eyebrow">Acceso del cliente</span><h3 id="qr-title">QR de la mesa</h3><p id="qr-subtitle">Escanea este código para abrir el menú.</p>
+        <div id="qr-code" class="qr-code" aria-label="Código QR"></div><div class="qr-url" id="qr-url-text"></div>
+        <div class="qr-dialog-actions"><button type="button" class="button button-primary" id="qr-print">Imprimir QR</button><button type="button" class="button" data-qr-close>Cerrar</button></div>
     </section>
 </div>
 
@@ -151,11 +105,8 @@ ts?.addEventListener('input',filterTables);tf?.addEventListener('change',filterT
 const tableModal=document.getElementById('table-modal'),tableTitle=document.getElementById('table-dialog-title'),tableStatus=document.getElementById('table-dialog-status'),tableCapacity=document.getElementById('table-dialog-capacity'),tableMenu=document.getElementById('table-menu'),tableEdit=document.getElementById('table-edit'),tableDelete=document.getElementById('table-delete-form'),tableCopy=document.getElementById('table-copy'),tableQr=document.getElementById('table-qr'),tablePrint=document.getElementById('table-print');let currentTableUrl='';
 function openTable(card){const n=card.dataset.tableNumber,name=card.dataset.tableName,status=card.dataset.tableStatus,capacity=card.dataset.tableCapacity;currentTableUrl=card.dataset.qrUrl;tableTitle.textContent=name;tableStatus.textContent=status;tableCapacity.textContent=capacity?`Capacidad: ${capacity} personas`:'';tableMenu.href=currentTableUrl;tableEdit.href=`{{ url('/admin/tables') }}/${n}/edit`;tableDelete.action=`{{ url('/admin/tables') }}/${n}`;tableModal.hidden=false;tableModal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
 function closeTable(){tableModal.hidden=true;tableModal.setAttribute('aria-hidden','true');document.body.style.overflow=''}
-document.querySelectorAll('.table-card').forEach(card=>card.addEventListener('click',()=>openTable(card)));document.querySelectorAll('[data-table-close]').forEach(el=>el.addEventListener('click',closeTable));
-const qrModal=document.getElementById('qr-modal'),qrCode=document.getElementById('qr-code'),qrTitle=document.getElementById('qr-title'),qrSubtitle=document.getElementById('qr-subtitle'),qrUrlText=document.getElementById('qr-url-text'),qrPrint=document.getElementById('qr-print');
-function openQr(){if(!currentTableUrl)return;qrCode.innerHTML='';const qr=qrcode(0,'M');qr.addData(currentTableUrl);qr.make();qrCode.innerHTML=qr.createImgTag(6,0);qrTitle.textContent=`QR ${tableTitle.textContent}`;qrSubtitle.textContent='Escanea este código para abrir el menú.';qrUrlText.textContent=currentTableUrl;qrModal.hidden=false;qrModal.setAttribute('aria-hidden','false')}
-function closeQr(){qrModal.hidden=true;qrModal.setAttribute('aria-hidden','true')}
-tableQr?.addEventListener('click',openQr);document.querySelectorAll('[data-qr-close]').forEach(el=>el.addEventListener('click',closeQr));qrPrint?.addEventListener('click',()=>window.print());tableCopy?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(currentTableUrl);tableCopy.querySelector('strong').textContent='Enlace copiado';setTimeout(()=>tableCopy.querySelector('strong').textContent='Copiar enlace',1600)}catch(e){prompt('Copia este enlace:',currentTableUrl)}});tablePrint?.addEventListener('click',openQr);
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!qrModal.hidden)closeQr();else if(!tableModal.hidden)closeTable()}});
+function openQr(){if(!currentTableUrl)return;const qr=qrcode(0,'M');qr.addData(currentTableUrl);qr.make();document.getElementById('qr-code').innerHTML=qr.createImgTag(6,0);document.getElementById('qr-title').textContent=`QR Mesa ${document.getElementById('table-dialog-title').textContent.replace(/^Mesa /,'')}`;document.getElementById('qr-url-text').textContent=currentTableUrl;document.getElementById('qr-modal').hidden=false;document.getElementById('qr-modal').setAttribute('aria-hidden','false')}
+function closeQr(){document.getElementById('qr-modal').hidden=true;document.getElementById('qr-modal').setAttribute('aria-hidden','true')}
+tableQr.addEventListener('click',openQr);tablePrint.addEventListener('click',openQr);tableCopy.addEventListener('click',async()=>{if(!currentTableUrl)return;try{await navigator.clipboard.writeText(currentTableUrl);alert('Enlace copiado.')}catch{prompt('Copia este enlace:',currentTableUrl)}});document.querySelectorAll('[data-table-close]').forEach(el=>el.addEventListener('click',closeTable));document.querySelectorAll('[data-qr-close]').forEach(el=>el.addEventListener('click',closeQr));document.getElementById('qr-print').addEventListener('click',()=>window.print());document.querySelectorAll('#table-grid .table-card').forEach(card=>card.addEventListener('click',()=>openTable(card)));
 </script>
 @endsection
