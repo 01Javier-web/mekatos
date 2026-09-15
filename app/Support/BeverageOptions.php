@@ -11,7 +11,7 @@ class BeverageOptions
     public const PRODUCTS = [
         'Gaseosa 350 ml' => ['Coca-Cola', 'Colombiana', 'Manzana', 'Tamarindo'],
         'Gaseosa 400 ml' => ['Coca-Cola', 'Coca-Cola Zero', 'Quatro', 'Soda'],
-        'Gaseosa 1.5 L' => ['Quatro', 'Colombiana', 'Manzana', 'Ginger', 'Coca-Cola', 'Soda'],
+        'Gaseosa 1.5 L' => ['Quatro', 'Colombiana', 'Manzana', 'Ginger', 'Coca-Cola'],
         'Jugos Hit' => ['Frutos tropicales', 'Naranja piña', 'Mora', 'Mango'],
         'Cerveza' => ['Águila Light', 'Poker'],
     ];
