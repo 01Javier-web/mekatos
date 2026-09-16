@@ -8,6 +8,7 @@ return new class extends Migration
     public function up(): void
     {
         $description = 'Acompañada de papa a la francesa, yuca frita, ensalada y aji';
+        $costillitasDescription = 'Acompañadas con papa a la francesa y huevos de codorniz';
 
         DB::table('products')
             ->whereIn('name', [
@@ -27,11 +28,20 @@ return new class extends Migration
                     ->orWhere('description', '');
             })
             ->update(['description' => $description]);
+
+        DB::table('products')
+            ->where('name', 'Costillitas')
+            ->where(function ($query) {
+                $query->whereNull('description')
+                    ->orWhere('description', '');
+            })
+            ->update(['description' => $costillitasDescription]);
     }
 
     public function down(): void
     {
         $description = 'Acompañada de papa a la francesa, yuca frita, ensalada y aji';
+        $costillitasDescription = 'Acompañadas con papa a la francesa y huevos de codorniz';
 
         DB::table('products')
             ->whereIn('name', [
@@ -47,6 +57,11 @@ return new class extends Migration
                 'Costilla a la BBQ - 400 gr',
             ])
             ->where('description', $description)
+            ->update(['description' => null]);
+
+        DB::table('products')
+            ->where('name', 'Costillitas')
+            ->where('description', $costillitasDescription)
             ->update(['description' => null]);
     }
 };
