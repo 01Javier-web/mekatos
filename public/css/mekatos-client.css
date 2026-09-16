@@ -4,6 +4,9 @@
 .client-header strong,.client-header span{color:#fff!important}
 .client-header span{opacity:.9}
 .client-header .button-primary{background:#E3B83C!important;border-color:#E3B83C!important;color:#2b2118!important}
+.client-header>div:first-child{width:180px;height:55px;overflow:hidden;position:relative}
+.client-header>div:first-child strong,.client-header>div:first-child span{display:none!important}
+.client-header>div:first-child::before{content:"";position:absolute;inset:0;background:url('../images/mekatos-logo.png') center/cover no-repeat}
 .client-hero h1,.menu-section-heading h2,.product-card h3,.cart-panel-header h2,.juice-modal-card h2,.client-confirm-card h2{color:#951d20!important}
 .eyebrow{color:#951d20!important}
 .client-hero p,.menu-section-heading p{color:#6b5940!important}
@@ -39,4 +42,5 @@
 @media(max-width:430px){
 .client-page .confirm-line{grid-template-columns:minmax(0,1fr) auto!important;column-gap:12px!important}
 .client-page .confirm-line>strong:last-child{font-size:.9rem!important}
+.client-header>div:first-child{width:145px;height:50px}
 }
