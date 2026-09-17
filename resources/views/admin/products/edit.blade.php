@@ -2,9 +2,9 @@
 @section('title', 'Editar producto | Mekatos')
 @section('content')
 <div class="page-shell page-shell-narrow">
-    <div class="page-heading"><div><span class="eyebrow">Administración</span><h2>Editar producto</h2><p>Actualiza la información de {{ $product->name }}.</p></div><a class="button" href="{{ route('admin.products.index') }}">← Volver</a></div>
+    <div class="page-heading"><div><span class="eyebrow">Configuración</span><h2>Editar producto</h2><p>Actualiza la información de {{ $product->name }}.</p></div><a class="button" href="{{ route('admin.settings.products.index') }}">← Volver</a></div>
     @if ($errors->any())<div class="alert alert-error"><strong>Revisa los datos del producto.</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-    <form class="form-card product-form" method="POST" action="{{ route('admin.products.update', $product) }}">
+    <form class="form-card product-form" method="POST" action="{{ route('admin.settings.products.update', $product) }}">
         @csrf @method('PUT')
         <div class="form-section-title"><strong>Información básica</strong><span>Actualiza los datos que verá el cliente.</span></div>
         <div class="form-grid">
@@ -32,7 +32,7 @@
                 <a class="button" href="{{ route('admin.beverage-options.index', $product) }}">Administrar opciones disponibles</a>
             </section>
         @endif
-        <div class="form-actions"><a class="button" href="{{ route('admin.products.index') }}">Cancelar</a><button class="button button-primary" type="submit" id="save-product">Guardar cambios</button></div>
+        <div class="form-actions"><a class="button" href="{{ route('admin.settings.products.index') }}">Cancelar</a><button class="button button-primary" type="submit" id="save-product">Guardar cambios</button></div>
     </form>
 </div>
 <style>.form-section-title{display:flex;justify-content:space-between;gap:15px;margin:-2px 0 20px;padding-bottom:12px;border-bottom:1px solid #eee}.form-section-title strong{font-size:.9rem}.form-section-title span{color:#888;font-size:.75rem}.field-help{display:block;margin-top:5px;color:#888;font-size:.72rem}.field-help code{font-size:.7rem}.product-form textarea{min-height:110px}.image-preview-wrap{position:relative;width:150px;height:120px;margin:-3px 0 20px;overflow:hidden;border:1px solid #e3e3e0;border-radius:12px;background:#f4f4f2}.image-preview-wrap img{width:100%;height:100%;object-fit:cover}.image-preview-wrap span{position:absolute;left:7px;bottom:7px;padding:3px 6px;border-radius:5px;background:rgba(23,23,23,.78);color:#fff;font-size:.65rem}.juice-settings-card{margin-top:22px;padding:18px;border:1px solid #e7e7e3;border-radius:12px;background:#fafaf8}.juice-settings-card .form-section-title{margin:0 0 12px}.juice-settings-description{margin:0 0 14px}.juice-settings-card .button{display:inline-flex}@media(max-width:600px){.form-section-title{align-items:flex-start;flex-direction:column;gap:3px}.juice-settings-card .button{width:100%}}
