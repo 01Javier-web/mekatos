@@ -47,6 +47,8 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::middleware('role:ADMIN')->group(function () {
+        Route::get('/admin/settings', fn () => view('admin.settings.index'))->name('admin.settings');
+
         Route::get('/admin/categories', [CategoryController::class, 'index'])->name('admin.categories.index');
         Route::get('/admin/categories/create', [CategoryController::class, 'create'])->name('admin.categories.create');
         Route::post('/admin/categories', [CategoryController::class, 'store'])->name('admin.categories.store');
