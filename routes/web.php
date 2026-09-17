@@ -48,6 +48,12 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:ADMIN')->group(function () {
         Route::get('/admin/settings', fn () => view('admin.settings.index'))->name('admin.settings');
+        Route::get('/admin/settings/products', [ProductController::class, 'settingsIndex'])->name('admin.settings.products.index');
+        Route::get('/admin/settings/products/create', [ProductController::class, 'create'])->name('admin.settings.products.create');
+        Route::post('/admin/settings/products', [ProductController::class, 'store'])->name('admin.settings.products.store');
+        Route::get('/admin/settings/products/{product}/edit', [ProductController::class, 'edit'])->name('admin.settings.products.edit');
+        Route::put('/admin/settings/products/{product}', [ProductController::class, 'update'])->name('admin.settings.products.update');
+        Route::delete('/admin/settings/products/{product}', [ProductController::class, 'destroy'])->name('admin.settings.products.destroy');
 
         Route::get('/admin/categories', [CategoryController::class, 'index'])->name('admin.categories.index');
         Route::get('/admin/categories/create', [CategoryController::class, 'create'])->name('admin.categories.create');
@@ -57,11 +63,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/admin/categories/{category}', [CategoryController::class, 'destroy'])->name('admin.categories.destroy');
 
         Route::get('/admin/products', [ProductController::class, 'index'])->name('admin.products.index');
-        Route::get('/admin/products/create', [ProductController::class, 'create'])->name('admin.products.create');
-        Route::post('/admin/products', [ProductController::class, 'store'])->name('admin.products.store');
-        Route::get('/admin/products/{product}/edit', [ProductController::class, 'edit'])->name('admin.products.edit');
-        Route::put('/admin/products/{product}', [ProductController::class, 'update'])->name('admin.products.update');
-        Route::delete('/admin/products/{product}', [ProductController::class, 'destroy'])->name('admin.products.destroy');
+        Route::put('/admin/products/{product}/availability', [ProductController::class, 'toggleAvailability'])->name('admin.products.availability');
 
         Route::get('/admin/juice-fruits', [JuiceFruitController::class, 'index'])->name('admin.juice-fruits.index');
         Route::put('/admin/juice-fruits/{juiceFruit}/toggle', [JuiceFruitController::class, 'toggle'])->name('admin.juice-fruits.toggle');
