@@ -58,6 +58,7 @@
                     <a href="{{ route('waiter.orders') }}" {{ $currentRoute === 'waiter.orders' ? 'aria-current=page' : '' }}>Pedidos mesero</a>
                     <a href="{{ route('admin.reports.daily') }}" {{ $currentRoute === 'admin.reports.daily' ? 'aria-current=page' : '' }}>Reportes</a>
                     <a href="{{ route('admin.categories.index') }}" {{ str_starts_with($currentRoute ?? '', 'admin.categories.') ? 'aria-current=page' : '' }}>Categorías</a>
+                    <a href="{{ route('admin.products.index') }}" {{ str_starts_with($currentRoute ?? '', 'admin.products.') ? 'aria-current=page' : '' }}>Productos</a>
                     <a href="{{ route('admin.tables.index') }}" {{ str_starts_with($currentRoute ?? '', 'admin.tables.') ? 'aria-current=page' : '' }}>Mesas</a>
                     <a href="{{ route('admin.users.index') }}" {{ str_starts_with($currentRoute ?? '', 'admin.users.') ? 'aria-current=page' : '' }}>Usuarios</a>
                 @else
@@ -68,9 +69,9 @@
                     <button type="button" class="user-chip" id="user-menu-toggle" aria-expanded="false" aria-controls="logout-menu"><strong>{{ auth()->user()->name }}</strong><small>{{ auth()->user()->role->value === 'ADMIN' ? 'Administrador' : 'Mesero' }}</small></button>
                     <div class="logout-form" id="logout-menu">
                         @if (auth()->user()->role->value === 'ADMIN')
-                            <a class="nav-settings" href="{{ route('admin.settings') }}">⚙️ Configuración</a>
+                            <a class="nav-settings" href="{{ route('admin.settings') }}">Configuración</a>
                         @endif
-                        <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="nav-logout">🚪 Cerrar sesión</button></form>
+                        <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="nav-logout">Cerrar sesión</button></form>
                     </div>
                 </div>
             </nav>
