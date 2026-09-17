@@ -20,6 +20,25 @@ class ProductController extends Controller
         ]);
     }
 
+    public function settingsIndex(): View
+    {
+        return view('admin.settings.products.index', [
+            'products' => Product::query()->with('category')->latest()->get(),
+        ]);
+    }
+
+    public function toggleAvailability(Product $product): RedirectResponse
+    {
+        $product->update(['is_available' => ! $product->is_available]);
+
+        return redirect()->route('admin.products.index')->with(
+            'success',
+            $product->is_available
+                ? 'Producto marcado como disponible.'
+                : 'Producto marcado como no disponible.'
+        );
+    }
+
     public function create(): View
     {
         return view('admin.products.create', [
@@ -43,7 +62,7 @@ class ProductController extends Controller
             'is_available' => $request->boolean('is_available'),
         ]);
 
-        return redirect()->route('admin.products.index')->with('success', 'Producto creado exitosamente.');
+        return redirect()->route('admin.settings.products.index')->with('success', 'Producto creado exitosamente.');
     }
 
     public function edit(Product $product): View
@@ -71,13 +90,13 @@ class ProductController extends Controller
             'is_available' => $request->boolean('is_available'),
         ]);
 
-        return redirect()->route('admin.products.index')->with('success', 'Producto actualizado exitosamente.');
+        return redirect()->route('admin.settings.products.index')->with('success', 'Producto actualizado exitosamente.');
     }
 
     public function destroy(Product $product): RedirectResponse
     {
         $product->delete();
 
-        return redirect()->route('admin.products.index')->with('success', 'Producto eliminado exitosamente.');
+        return redirect()->route('admin.settings.products.index')->with('success', 'Producto eliminado exitosamente.');
     }
 }
