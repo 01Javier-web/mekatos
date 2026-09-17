@@ -15,7 +15,7 @@
         .login-card{position:relative;background:rgba(255,253,247,.97);border:1px solid var(--mk-border);border-radius:20px;padding:38px;box-shadow:0 24px 70px rgba(83,58,15,.22);overflow:hidden}
         .login-card::before{content:"";position:absolute;left:0;top:0;right:0;height:6px;background:linear-gradient(90deg,var(--mk-red),var(--mk-mustard))}
         .login-card-header{text-align:left}
-        .login-brand{display:block;width:100%;height:105px;margin:0 0 20px;color:transparent;font-size:0;overflow:hidden;background-image:url('{{ asset('images/mekatos-logo.png') }}');background-repeat:no-repeat;background-position:center;background-size:contain}
+        .login-brand{display:block;width:100%;height:125px;margin:0 0 16px;color:transparent;font-size:0;overflow:hidden;background-image:url('{{ asset('images/mekatos-logo.png') }}');background-repeat:no-repeat;background-position:center;background-size:112% auto}
         .login-status{display:inline-flex;align-items:center;gap:8px;margin:0 0 17px;padding:6px 10px;border-radius:999px;background:#edf7e8;color:#315d24;font-size:.72rem;font-weight:800}
         .login-status::before{content:"";width:7px;height:7px;border-radius:50%;background:#3d8b3d;box-shadow:0 0 0 3px #dff0d9}
         .login-eyebrow{margin:0 0 7px;color:var(--mk-red);font-size:.7rem;font-weight:850;letter-spacing:.12em;text-transform:uppercase}
@@ -31,7 +31,7 @@
         .login-button:hover{background:var(--mk-red-dark);border-color:var(--mk-red-dark);transform:translateY(-1px)}.login-button:disabled{transform:none}
         .login-help{margin:18px 0 0;padding-top:16px;border-top:1px solid #eadfbf;text-align:center;color:#887961;font-size:.74rem}
         .error-list{margin-bottom:0}.alert-error{background:#fff0ef;border-color:#e3b0ad;color:#8f2527}
-        @media(max-width:480px){.login-page{padding:16px}.login-card{padding:30px 22px;border-radius:17px}.login-card h1{font-size:1.9rem}.login-brand{height:90px;margin-bottom:18px}}
+        @media(max-width:480px){.login-page{padding:16px}.login-card{padding:30px 22px;border-radius:17px}.login-card h1{font-size:1.9rem}.login-brand{height:105px;margin-bottom:15px;background-size:112% auto}}
     </style>
 </head>
 <body class="login-page">
