@@ -6,7 +6,7 @@
         <div>
             <span class="eyebrow">Administración</span>
             <h2>Configuración</h2>
-            <p>Gestiona la configuración del sistema y del catálogo de Mekatos.</p>
+            <p>Opciones administrativas que solo están disponibles para el administrador.</p>
         </div>
     </div>
 
@@ -15,9 +15,9 @@
             <div class="settings-icon" aria-hidden="true">🍔</div>
             <div class="settings-card-content">
                 <span class="settings-label">Catálogo</span>
-                <h3>Productos</h3>
-                <p>Crea nuevos productos, modifica precios y descripciones, cambia su disponibilidad o elimina productos del catálogo.</p>
-                <a class="button button-primary" href="{{ route('admin.products.index') }}">Gestionar productos</a>
+                <h3>Gestión de productos</h3>
+                <p>Crea nuevos productos, modifica precios y descripciones o elimina productos del catálogo.</p>
+                <a class="button button-primary" href="{{ route('admin.settings.products.index') }}">Gestionar productos</a>
             </div>
         </article>
     </section>
