@@ -38,7 +38,7 @@
         .client-feedback .client-toast{background:#33271d}.client-toast-icon{color:var(--mk-red)}.client-toast-error{background:#8f2527}.tables-legend{padding-left:6px}
         .panel,.form-card,.stat-card,.waiter-card,.product-card,.cart-panel,.confirmation-card,.client-confirm-card{border-radius:12px;overflow:hidden}.panel:hover,.form-card:hover,.stat-card:hover,.waiter-card:hover,.product-card:hover,.cart-panel:hover,.confirmation-card:hover,.client-confirm-card:hover{border-radius:12px}
         @media(max-width:980px){.header-inner{gap:12px}.main-nav a{padding-inline:8px}.user-chip{padding-inline:7px}}
-        @media(max-width:760px){.header-inner{min-height:60px;width:min(100% - 24px,1240px)}.brand{width:145px;height:50px}.mobile-nav-toggle{display:inline-flex;margin-left:auto}.main-nav{display:none;position:absolute;left:12px;right:12px;top:58px;padding:10px;background:var(--mk-red);border:1px solid rgba(255,255,255,.28);border-radius:14px;box-shadow:0 18px 45px rgba(70,18,18,.30)}.main-nav.is-open{display:grid;grid-template-columns:1fr 1fr;gap:5px}.main-nav a,.main-nav .nav-primary{padding:11px 12px;text-align:left}.main-nav .nav-primary{grid-column:1/-1}.user-menu{grid-column:1/-1;justify-content:stretch;margin:5px 0 0}.user-chip{width:100%;border-left:0;border-top:1px solid rgba(255,255,255,.28);margin:0;padding:10px 18px 5px 5px}.user-chip::after{right:7px}.logout-form{position:static;min-width:0;width:100%;margin-top:4px;box-shadow:none;border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.08)}.nav-logout,.nav-settings{color:#fff}.nav-logout:hover,.nav-logout:focus-visible,.nav-settings:hover,.nav-settings:focus-visible{background:rgba(255,255,255,.14);color:#fff}}
+        @media(max-width:760px){.header-inner{min-height:60px;width:min(100% - 24px,1240px)}.brand{width:145px;height:50px}.mobile-nav-toggle{display:inline-flex;margin-left:auto}.main-nav{display:none;position:absolute;left:12px;right:12px;top:58px;padding:10px;background:var(--mk-red);border:1px solid rgba(255,255,255,.28);border-radius:14px;box-shadow:0 18px 45px rgba(70,18,18,.30)}.main-nav.is-open{display:grid;grid-template-columns:1fr 1fr;gap:5px}.main-nav a,.main-nav .nav-primary{padding:11px 12px;text-align:left}.main-nav .nav-primary{grid-column:1/-1}.user-menu{grid-column:1/-1;justify-content:stretch;margin:5px 0 0}.user-chip{width:100%;border-left:0;border-top:1px solid rgba(255,255,255,.28);margin:0;padding:10px 18px 5px 5px}.user-chip::after{right:7px}.logout-form{position:static;min-width:0;width:100%;margin-top:4px;box-shadow:none;border-color:rgba(255,255,255,.18);background:var(--mk-card)}.nav-logout,.nav-settings{color:var(--mk-ink);background:transparent}.nav-logout:hover,.nav-logout:focus-visible,.nav-settings:hover,.nav-settings:focus-visible{background:#f8e7ae;color:var(--mk-red-dark)}}
         @media(max-width:480px){.main-nav.is-open{grid-template-columns:1fr}.main-nav .nav-primary,.user-menu{grid-column:auto}}
         @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.stat-card,.quick-actions a,.product-card{transition:none}}
     </style>
@@ -69,9 +69,9 @@
                     <button type="button" class="user-chip" id="user-menu-toggle" aria-expanded="false" aria-controls="logout-menu"><strong>{{ auth()->user()->name }}</strong><small>{{ auth()->user()->role->value === 'ADMIN' ? 'Administrador' : 'Mesero' }}</small></button>
                     <div class="logout-form" id="logout-menu">
                         @if (auth()->user()->role->value === 'ADMIN')
-                            <a class="nav-settings" href="{{ route('admin.settings') }}">Configuración</a>
+                            <a class="nav-settings" href="{{ route('admin.settings') }}">⚙️ Configuración</a>
                         @endif
-                        <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="nav-logout">Cerrar sesión</button></form>
+                        <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="nav-logout">🚪 Cerrar sesión</button></form>
                     </div>
                 </div>
             </nav>
