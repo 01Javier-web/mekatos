@@ -18,9 +18,9 @@ class PrintController extends Controller
 {
     public function orderPack(Order $order): View
     {
-        if (! in_array($order->status, [OrderStatus::PENDING, OrderStatus::PREPARING], true)) {
+        if (! in_array($order->status, [OrderStatus::PENDING, OrderStatus::PREPARING, OrderStatus::DELIVERED], true)) {
             throw ValidationException::withMessages([
-                'status' => ['Solo se pueden imprimir pedidos pendientes o nuevas adiciones de pedidos en preparación.'],
+                'status' => ['Solo se pueden imprimir pedidos pendientes, en preparación o con nuevas adiciones pendientes.'],
             ]);
         }
 
