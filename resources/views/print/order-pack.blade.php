@@ -112,44 +112,6 @@
                 @endif
                 <div class="ticket-footer">Pedido #{{ $order->id }} · {{ $order->type?->value === 'DOMICILIO' ? 'DOMICILIO' : 'PARA LLEVAR' }}</div>
             </section>
-
-                </div>
-                @foreach($order->orderItems as $item)
-                    <div class="line">
-                        <span class="line-name">{{ $item->quantity }} × {{ $item->product?->name ?? 'Producto' }}</span>
-                        <span class="line-price">${{ number_format($item->total, 0, ',', '.') }}</span>
-                    </div>
-                    @if($item->notes)
-                        <div class="line-note">Detalle: {{ $item->notes }}</div>
-                    @endif
-                @endforeach
-                <div class="separator"></div>
-                <div class="total-line">
-                    <span>SUBTOTAL</span>
-                    <span>${{ number_format($order->subtotal, 0, ',', '.') }}</span>
-                </div>
-                @if((int) $order->packaging_fee > 0)
-                    <div class="total-line">
-                        <span>EMPAQUES</span>
-                        <span>${{ number_format($order->packaging_fee, 0, ',', '.') }}</span>
-                    </div>
-                @endif
-                @if($order->type?->value === 'DOMICILIO')
-                    <div class="total-line"><span>DOMICILIO</span><span>${{ number_format($order->delivery_fee, 0, ',', '.') }}</span></div>
-                @endif
-                <div class="separator"></div>
-                <div class="total-line grand-total">
-                    <span>TOTAL</span>
-                    <span>${{ number_format($order->total, 0, ',', '.') }}</span>
-                </div>
-                @if($order->notes)
-                    <div class="general-note">
-                        <strong>Nota general</strong>
-                        {{ $order->notes }}
-                    </div>
-                @endif
-                <div class="ticket-footer">Pedido #{{ $order->id }} · {{ $order->type?->value === 'DOMICILIO' ? 'DOMICILIO' : 'PARA LLEVAR' }}</div>
-            </section>
         @endif
 
     </main>
