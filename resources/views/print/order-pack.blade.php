@@ -41,11 +41,11 @@
         @if(in_array($order->type?->value, ['PARA_LLEVAR','DOMICILIO'], true))
             <section class="ticket">
                 <img class="ticket-logo" src="{{ asset('images/mekatos-logo.png') }}" alt="Mekatos Comidas Rápidas">
-                <h1>Pedido completo</h1>
-                <div class="takeaway-label">{{ $order->type?->value === 'DOMICILIO' ? 'DOMICILIO' : 'PARA LLEVAR' }}</div>
+                <h1>{{ $isAddition ? 'Actualización del pedido' : 'Pedido completo' }}</h1>
+                <div class="takeaway-label">{{ $isAddition ? 'ADICIÓN #'.$roundNumber : ($order->type?->value === 'DOMICILIO' ? 'DOMICILIO' : 'PARA LLEVAR') }}</div>
                 <div class="meta">
                     <div><strong>Pedido:</strong> #{{ $order->id }}</div>
-                    <div><strong>Hora:</strong> {{ $order->created_at?->format('H:i') }}</div>
+                    <div><strong>Hora:</strong> {{ now()->format('H:i') }}</div>
                     <div><strong>Responsable:</strong> {{ $order->handledBy?->name ?? 'Pedido QR' }}</div>
                     @if($order->type?->value === 'DOMICILIO')
                         <div><strong>Cliente:</strong> {{ $order->customer_name }}</div>
@@ -53,6 +53,66 @@
                         <div><strong>Dirección:</strong> {{ $order->delivery_address }}</div>
                         @if($order->delivery_reference)<div><strong>Referencia:</strong> {{ $order->delivery_reference }}</div>@endif
                     @endif
+                </div>
+                @foreach($takeawayItems as $item)
+                    <div class="line">
+                        <span class="line-name">{{ $item->quantity }} × {{ $item->product?->name ?? 'Producto' }}</span>
+                        <span class="line-price">&#36;{{ number_format($item->total, 0, ',', '.') }}</span>
+                    </div>
+                    @if($item->notes)
+                        <div class="line-note">Detalle: {{ $item->notes }}</div>
+                    @endif
+                @endforeach
+                <div class="separator"></div>
+                @if($isAddition)
+                    @php
+                        $additionSubtotal = $takeawayItems->sum('total');
+                        $additionPackaging = $takeawayItems->sum(fn($item) => \App\Support\TakeawayPackaging::fee($item->product, (int) $item->quantity, $order->type->value));
+                    @endphp
+                    <div class="total-line">
+                        <span>VALOR ADICIÓN</span>
+                        <span>&#36;{{ number_format($additionSubtotal + $additionPackaging, 0, ',', '.') }}</span>
+                    </div>
+                    @if($additionPackaging > 0)
+                        <div class="total-line">
+                            <span>EMPAQUES ADICIÓN</span>
+                            <span>&#36;{{ number_format($additionPackaging, 0, ',', '.') }}</span>
+                        </div>
+                    @endif
+                    <div class="separator"></div>
+                    <div class="total-line grand-total">
+                        <span>TOTAL ACTUAL</span>
+                        <span>&#36;{{ number_format($order->total, 0, ',', '.') }}</span>
+                    </div>
+                @else
+                    <div class="total-line">
+                        <span>SUBTOTAL</span>
+                        <span>&#36;{{ number_format($order->subtotal, 0, ',', '.') }}</span>
+                    </div>
+                    @if((int) $order->packaging_fee > 0)
+                        <div class="total-line">
+                            <span>EMPAQUES</span>
+                            <span>&#36;{{ number_format($order->packaging_fee, 0, ',', '.') }}</span>
+                        </div>
+                    @endif
+                    @if($order->type?->value === 'DOMICILIO')
+                        <div class="total-line"><span>DOMICILIO</span><span>&#36;{{ number_format($order->delivery_fee, 0, ',', '.') }}</span></div>
+                    @endif
+                    <div class="separator"></div>
+                    <div class="total-line grand-total">
+                        <span>TOTAL</span>
+                        <span>&#36;{{ number_format($order->total, 0, ',', '.') }}</span>
+                    </div>
+                @endif
+                @if($order->notes)
+                    <div class="general-note">
+                        <strong>Nota general</strong>
+                        {{ $order->notes }}
+                    </div>
+                @endif
+                <div class="ticket-footer">Pedido #{{ $order->id }} · {{ $order->type?->value === 'DOMICILIO' ? 'DOMICILIO' : 'PARA LLEVAR' }}</div>
+            </section>
+
                 </div>
                 @foreach($order->orderItems as $item)
                     <div class="line">
