@@ -18,23 +18,11 @@ class PrintController extends Controller
 {
     public function orderPack(Order $order): View
     {
-        if ($order->status !== OrderStatus::PENDING) {
+        if (! in_array($order->status, [OrderStatus::PENDING, OrderStatus::PREPARING], true)) {
             throw ValidationException::withMessages([
-                'status' => ['Solo se pueden imprimir comandas de pedidos PENDIENTES.'],
+                'status' => ['Solo se pueden imprimir pedidos pendientes o nuevas adiciones de pedidos en preparación.'],
             ]);
         }
-
-        $previousStatus = $order->status;
-
-        DB::transaction(function () use ($order, $previousStatus): void {
-            $order->update(['status' => OrderStatus::PREPARING]);
-            $order->statusHistories()->create([
-                'previous_status' => $previousStatus->value,
-                'new_status' => OrderStatus::PREPARING->value,
-                'changed_by_user_id' => Auth::id(),
-                'changed_at' => now(),
-            ]);
-        });
 
         $order->load([
             'tableSession.restaurantTable',
@@ -42,22 +30,55 @@ class PrintController extends Controller
             'handledBy',
         ]);
 
-        $beverageItems = $order->orderItems
+        $unsentItems = $order->orderItems
+            ->filter(fn ($item): bool => $item->sent_at === null)
+            ->values();
+
+        if ($unsentItems->isEmpty()) {
+            throw ValidationException::withMessages([
+                'status' => ['No hay productos nuevos pendientes de impresión en este pedido.'],
+            ]);
+        }
+
+        $isAddition = $order->orderItems->contains(
+            fn ($item): bool => $item->sent_at !== null
+        );
+
+        $previousStatus = $order->status;
+
+        DB::transaction(function () use ($order, $unsentItems, $previousStatus): void {
+            $order->update(['status' => OrderStatus::PREPARING]);
+
+            $order->statusHistories()->create([
+                'previous_status' => $previousStatus->value,
+                'new_status' => OrderStatus::PREPARING->value,
+                'changed_by_user_id' => Auth::id(),
+                'changed_at' => now(),
+                'notes' => $previousStatus === OrderStatus::PENDING
+                    ? 'Comandas impresas.'
+                    : 'Nueva adición impresa.',
+            ]);
+
+            $unsentItems->each(fn ($item) => $item->update(['sent_at' => now()]));
+        });
+
+        $beverageItems = $unsentItems
             ->filter(fn ($item): bool => $this->isPreparedByBeverageStation($item))
             ->values();
 
-        $kitchenItems = $order->orderItems
+        $kitchenItems = $unsentItems
             ->reject(fn ($item): bool => $this->isBeverageItem($item))
             ->values();
 
-        $takeawayItems = $order->orderItems->values();
+        $printItems = $isAddition ? $unsentItems : $order->orderItems->values();
 
-        return view('print.order-pack', compact(
-            'order',
-            'kitchenItems',
-            'beverageItems',
-            'takeawayItems'
-        ));
+        return view('print.order-pack', [
+            'order' => $order->fresh(['tableSession.restaurantTable', 'handledBy', 'orderItems.product.category']),
+            'kitchenItems' => $kitchenItems,
+            'beverageItems' => $beverageItems,
+            'takeawayItems' => $printItems,
+            'isAddition' => $isAddition,
+        ]);
     }
 
     private function isBeverageItem($item): bool
