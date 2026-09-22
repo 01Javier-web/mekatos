@@ -14,11 +14,13 @@ class TakeawayPackaging
 
         return in_array($name, [
             'jugo natural jarra',
+            'limonada jarra',
             'milo jarra',
             'soda preparada',
-            'tamarindo preparada (con limon)',
             'tamarindo preparada',
-        ], true) || str_contains($name, 'granizado');
+            'tamarindo preparada (con limon)',
+            'cerezada',
+        ], true) || str_contains($name, 'granizada') || str_contains($name, 'granizado');
     }
 
     public static function fee(Product $product, int $quantity, string $orderType): int
