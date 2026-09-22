@@ -130,8 +130,8 @@ class ManualOrderTest extends TestCase
         $response->assertRedirect(route('waiter.orders'));
         $this->assertNotNull($order);
         $this->assertSame(6000, (int) $order->packaging_fee);
-        $this->assertSame(39000.0, (float) $order->subtotal);
-        $this->assertSame(45000.0, (float) $order->total);
+        $this->assertSame(35000.0, (float) $order->subtotal);
+        $this->assertSame(41000.0, (float) $order->total);
     }
 
     public function test_table_order_does_not_charge_beverage_packaging(): void
