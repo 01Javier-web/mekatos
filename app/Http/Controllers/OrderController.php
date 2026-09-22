@@ -154,12 +154,15 @@ class OrderController extends Controller
                 $lineTotal = $unitPrice * $quantity;
                 $packagingFee += TakeawayPackaging::fee($product, $quantity, $type->value);
 
-                $round->orderItems()->create([
+                \App\Models\OrderItem::create([
+                    'order_id' => $order->id,
+                    'order_round_id' => $round->id,
                     'product_id' => $product->id,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
                     'total' => $lineTotal,
                     'notes' => $lineNotes,
+                    'sent_at' => null,
                 ]);
                 $subtotal += $lineTotal;
             }
