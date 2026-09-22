@@ -84,6 +84,7 @@ class OrderController extends Controller
             }
 
             $order=Order::create(['table_session_id'=>$session?->id,'type'=>$type,'status'=>OrderStatus::PENDING,'subtotal'=>0,'packaging_fee'=>0,'delivery_fee'=>(int)($v['delivery_fee']??0),'tax'=>0,'total'=>0,'customer_name'=>$v['customer_name']??null,'customer_phone'=>$v['customer_phone']??null,'delivery_address'=>$v['delivery_address']??null,'delivery_reference'=>$v['delivery_reference']??null,'notes'=>$v['notes']??null,'handled_by_user_id'=>Auth::id()]);
+                        $round=$order->rounds()->create(['number'=>1,'created_by_user_id'=>Auth::id()]);
             $subtotal=0;
             $packagingFee=0;
 
@@ -117,7 +118,7 @@ class OrderController extends Controller
 
                 $line=$price*$quantity;
                 $packagingFee+=TakeawayPackaging::fee($p,$quantity,$type->value);
-                $order->orderItems()->create(['product_id'=>$p->id,'quantity'=>$quantity,'unit_price'=>$price,'total'=>$line,'notes'=>$notes]);
+                $round->orderItems()->create(['product_id'=>$p->id,'quantity'=>$quantity,'unit_price'=>$price,'total'=>$line,'notes'=>$notes]);
                 $subtotal+=$line;
             }
 
