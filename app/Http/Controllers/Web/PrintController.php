@@ -72,12 +72,16 @@ class PrintController extends Controller
 
         $printItems = $isAddition ? $unsentItems : $order->orderItems->values();
 
+        $freshOrder = $order->fresh(['tableSession.restaurantTable', 'handledBy', 'orderItems.product.category']);
+        $roundNumber = (int) $freshOrder->rounds()->max('number');
+
         return view('print.order-pack', [
-            'order' => $order->fresh(['tableSession.restaurantTable', 'handledBy', 'orderItems.product.category']),
+            'order' => $freshOrder,
             'kitchenItems' => $kitchenItems,
             'beverageItems' => $beverageItems,
             'takeawayItems' => $printItems,
             'isAddition' => $isAddition,
+            'roundNumber' => $roundNumber,
         ]);
     }
 
