@@ -10,7 +10,7 @@
             <h2>Nueva categoría</h2>
             <p>Crea una categoría para organizar los productos del menú.</p>
         </div>
-        <a class="button" href="{{ route('admin.categories.index') }}">Volver</a>
+        <a class="button" href="{{ route('admin.settings.categories.index') }}">Volver</a>
     </div>
 
     @if ($errors->any())
@@ -23,7 +23,7 @@
         </div>
     @endif
 
-    <form class="form-card" method="POST" action="{{ route('admin.categories.store') }}">
+    <form class="form-card" method="POST" action="{{ route('admin.settings.categories.store') }}">
         @csrf
         <div class="form-grid">
             <label>
@@ -48,7 +48,7 @@
         </label>
 
         <div class="form-actions">
-            <a class="button" href="{{ route('admin.categories.index') }}">Cancelar</a>
+            <a class="button" href="{{ route('admin.settings.categories.index') }}">Cancelar</a>
             <button class="button button-primary" type="submit">Guardar categoría</button>
         </div>
     </form>
