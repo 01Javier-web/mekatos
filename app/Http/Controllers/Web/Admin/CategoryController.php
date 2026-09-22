@@ -12,9 +12,26 @@ class CategoryController extends Controller
 {
     public function index(): View
     {
-        return view('admin.categories.index', [
+        return view('admin.settings.categories.index', [
             'categories' => Category::query()->orderBy('sort_order')->orderBy('name')->get(),
         ]);
+    }
+
+    public function settingsIndex(): View
+    {
+        return view('admin.settings.categories.index', [
+            'categories' => Category::query()->orderBy('sort_order')->orderBy('name')->get(),
+        ]);
+    }
+
+    public function toggleAvailability(Category $category): RedirectResponse
+    {
+        $category->update(['is_active' => ! $category->is_active]);
+
+        return redirect()->route('admin.settings.categories.index')->with(
+            'success',
+            $category->is_active ? 'Categoría habilitada.' : 'Categoría deshabilitada.'
+        );
     }
 
     public function create(): View
@@ -38,7 +55,7 @@ class CategoryController extends Controller
             'is_active' => $request->boolean('is_active'),
         ]);
 
-        return redirect()->route('admin.categories.index')->with('success', 'Categoría creada exitosamente.');
+        return redirect()->route('admin.settings.categories.index')->with('success', 'Categoría creada exitosamente.');
     }
 
     public function edit(Category $category): View
@@ -62,13 +79,13 @@ class CategoryController extends Controller
             'is_active' => $request->boolean('is_active'),
         ]);
 
-        return redirect()->route('admin.categories.index')->with('success', 'Categoría actualizada exitosamente.');
+        return redirect()->route('admin.settings.categories.index')->with('success', 'Categoría actualizada exitosamente.');
     }
 
     public function destroy(Category $category): RedirectResponse
     {
         $category->delete();
 
-        return redirect()->route('admin.categories.index')->with('success', 'Categoría eliminada exitosamente.');
+        return redirect()->route('admin.settings.categories.index')->with('success', 'Categoría eliminada exitosamente.');
     }
 }
