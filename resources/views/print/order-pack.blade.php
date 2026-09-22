@@ -16,13 +16,7 @@
                 <img class="ticket-logo" src="{{ asset('images/mekatos-logo.png') }}" alt="Mekatos Comidas Rápidas">
                 <h1>Cocina</h1>
                 <div class="location">{{ in_array($order->type?->value, ['PARA_LLEVAR','DOMICILIO'], true) ? ($order->type?->value === 'DOMICILIO' ? 'DOMICILIO' : 'PARA LLEVAR') : 'MESA '.($order->tableSession?->restaurantTable?->number ?? '—') }}</div>
-                <div class="meta"><div><strong>Hora:</strong> {{ $order->created_at?->format('H:i') }}</div><div><strong>Responsable:</strong> {{ $order->handledBy?->name ?? 'Pedido QR' }}</div>
-                    @if($order->type?->value === 'DOMICILIO')
-                        <div><strong>Cliente:</strong> {{ $order->customer_name }}</div>
-                        <div><strong>Teléfono:</strong> {{ $order->customer_phone }}</div>
-                        <div><strong>Dirección:</strong> {{ $order->delivery_address }}</div>
-                        @if($order->delivery_reference)<div><strong>Referencia:</strong> {{ $order->delivery_reference }}</div>@endif
-                    @endif</div>
+                <div class="meta"><div><strong>Hora:</strong> {{ $order->created_at?->format('H:i') }}</div><div><strong>Responsable:</strong> {{ $order->handledBy?->name ?? 'Pedido QR' }}</div></div>
                 @foreach($kitchenItems as $item)
                     <div class="line"><span class="line-name">{{ $item->quantity }} × {{ $item->product?->name ?? 'Producto' }}</span></div>
                     @if($item->notes)<div class="line-note">Detalle: {{ $item->notes }}</div>@endif
@@ -35,13 +29,7 @@
                 <img class="ticket-logo" src="{{ asset('images/mekatos-logo.png') }}" alt="Mekatos Comidas Rápidas">
                 <h1>Bebidas</h1>
                 <div class="location">{{ in_array($order->type?->value, ['PARA_LLEVAR','DOMICILIO'], true) ? ($order->type?->value === 'DOMICILIO' ? 'DOMICILIO' : 'PARA LLEVAR') : 'MESA '.($order->tableSession?->restaurantTable?->number ?? '—') }}</div>
-                <div class="meta"><div><strong>Hora:</strong> {{ $order->created_at?->format('H:i') }}</div><div><strong>Responsable:</strong> {{ $order->handledBy?->name ?? 'Pedido QR' }}</div>
-                    @if($order->type?->value === 'DOMICILIO')
-                        <div><strong>Cliente:</strong> {{ $order->customer_name }}</div>
-                        <div><strong>Teléfono:</strong> {{ $order->customer_phone }}</div>
-                        <div><strong>Dirección:</strong> {{ $order->delivery_address }}</div>
-                        @if($order->delivery_reference)<div><strong>Referencia:</strong> {{ $order->delivery_reference }}</div>@endif
-                    @endif</div>
+                <div class="meta"><div><strong>Hora:</strong> {{ $order->created_at?->format('H:i') }}</div><div><strong>Responsable:</strong> {{ $order->handledBy?->name ?? 'Pedido QR' }}</div></div>
                 @foreach($beverageItems as $item)
                     <div class="line"><span class="line-name">{{ $item->quantity }} × {{ $item->product?->name ?? 'Jugo' }}</span></div>
                     @if($item->notes)<div class="line-note">Detalle: {{ $item->notes }}</div>@endif
