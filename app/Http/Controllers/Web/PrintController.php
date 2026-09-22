@@ -224,7 +224,7 @@ class PrintController extends Controller
 
     public function payOrder(Order $order): RedirectResponse
     {
-        if ($order->type?->value !== 'PARA_LLEVAR') {
+        if (! in_array($order->type?->value, ['PARA_LLEVAR', 'DOMICILIO'], true)) {
             throw ValidationException::withMessages([
                 'order' => ['Los pedidos en mesa se cobran mediante la cuenta de la mesa.'],
             ]);
