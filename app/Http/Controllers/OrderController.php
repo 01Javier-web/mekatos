@@ -43,6 +43,11 @@ class OrderController extends Controller
             'items.*.combo_beverage_type' => ['nullable', Rule::in(array_keys(ComboOptions::types()))],
             'items.*.combo_beverage_flavor' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'customer_name' => ['nullable', 'string', 'max:255'],
+            'customer_phone' => ['nullable', 'string', 'max:30'],
+            'delivery_address' => ['nullable', 'string', 'max:255'],
+            'delivery_reference' => ['nullable', 'string', 'max:255'],
+            'delivery_fee' => ['nullable', 'regex:/^\\d+$/', 'max:9999999999'],
         ]);
 
         $type = OrderType::from($validatedData['type'] ?? OrderType::TABLE->value);
@@ -52,11 +57,20 @@ class OrderController extends Controller
         if ($type === OrderType::TABLE && ! $tableSessionId && ! $tableToken) {
             throw ValidationException::withMessages(['table_token' => ['Los pedidos en mesa requieren identificar la mesa.']]);
         }
-        if ($type === OrderType::TAKEAWAY && $tableSessionId) {
+        if ($type !== OrderType::TABLE && $tableSessionId) {
             throw ValidationException::withMessages(['table_session_id' => ['Un pedido para llevar no puede estar asociado a una mesa.']]);
         }
-        if ($type === OrderType::TAKEAWAY && ! $request->user()) {
-            return response()->json(['message' => 'Los pedidos para llevar desde la API requieren autenticación.'], 401);
+        if (in_array($type, [OrderType::TAKEAWAY, OrderType::DELIVERY], true) && ! $request->user()) {
+            return response()->json(['message' => 'Los pedidos para llevar o a domicilio desde la API requieren autenticación.'], 401);
+        }
+
+        if ($type === OrderType::DELIVERY) {
+            validator($validatedData, [
+                'customer_name' => ['required', 'string', 'max:255'],
+                'customer_phone' => ['required', 'string', 'max:30'],
+                'delivery_address' => ['required', 'string', 'max:255'],
+                'delivery_fee' => ['required', 'regex:/^\\d+$/', 'max:9999999999'],
+            ])->validate();
         }
 
         if ($tableSessionId) {
@@ -85,8 +99,13 @@ class OrderController extends Controller
                 'status' => OrderStatus::PENDING,
                 'subtotal' => 0,
                 'packaging_fee' => 0,
+                'delivery_fee' => (int) ($validatedData['delivery_fee'] ?? 0),
                 'tax' => 0,
                 'total' => 0,
+                'customer_name' => $validatedData['customer_name'] ?? null,
+                'customer_phone' => $validatedData['customer_phone'] ?? null,
+                'delivery_address' => $validatedData['delivery_address'] ?? null,
+                'delivery_reference' => $validatedData['delivery_reference'] ?? null,
                 'notes' => $validatedData['notes'] ?? null,
                 'handled_by_user_id' => Auth::id(),
             ]);
@@ -148,7 +167,7 @@ class OrderController extends Controller
                 'subtotal' => $subtotal,
                 'packaging_fee' => $packagingFee,
                 'tax' => 0,
-                'total' => $subtotal + $packagingFee,
+                'total' => $subtotal + $packagingFee + (int) ($validatedData['delivery_fee'] ?? 0),
             ]);
             $order->statusHistories()->create([
                 'previous_status' => null,
