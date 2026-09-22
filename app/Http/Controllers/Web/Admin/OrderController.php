@@ -14,7 +14,7 @@ use App\Support\BeverageOptions;
 use App\Support\ComboOptions;
 use App\Support\JuiceOptions;
 use App\Support\TakeawayPackaging;
-use App\Enums\TableSessionStatus;
+use App\TableSessionStatus;
 use App\TableStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
