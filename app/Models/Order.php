@@ -41,6 +41,11 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function rounds(): HasMany
+    {
+        return $this->hasMany(OrderRound::class)->orderBy('number');
+    }
+
     public function statusHistories(): HasMany
     {
         return $this->hasMany(OrderStatusHistory::class);
