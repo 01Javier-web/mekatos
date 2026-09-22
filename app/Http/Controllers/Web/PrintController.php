@@ -18,22 +18,98 @@ class PrintController extends Controller
 {
     public function orderPack(Order $order): View
     {
-        if ($order->status !== OrderStatus::PENDING) throw ValidationException::withMessages(['status' => ['Solo se pueden imprimir comandas de pedidos PENDIENTES.']]);
+        if ($order->status !== OrderStatus::PENDING) {
+            throw ValidationException::withMessages([
+                'status' => ['Solo se pueden imprimir comandas de pedidos PENDIENTES.'],
+            ]);
+        }
+
         $previousStatus = $order->status;
+
         DB::transaction(function () use ($order, $previousStatus): void {
             $order->update(['status' => OrderStatus::PREPARING]);
-            $order->statusHistories()->create(['previous_status' => $previousStatus->value, 'new_status' => OrderStatus::PREPARING->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
+            $order->statusHistories()->create([
+                'previous_status' => $previousStatus->value,
+                'new_status' => OrderStatus::PREPARING->value,
+                'changed_by_user_id' => Auth::id(),
+                'changed_at' => now(),
+            ]);
         });
-        $order->load(['tableSession.restaurantTable', 'orderItems.product.category', 'handledBy']);
-        $juiceItems = $order->orderItems->filter(fn ($item): bool => str_starts_with(mb_strtolower($item->product?->name ?? ''), 'jugo'))->values();
-        $kitchenItems = $order->orderItems->reject(fn ($item): bool => $this->isNonPreparedDrink($item) || str_starts_with(mb_strtolower($item->product?->name ?? ''), 'jugo'))->values();
-        return view('print.order-pack', compact('order', 'kitchenItems', 'juiceItems'));
+
+        $order->load([
+            'tableSession.restaurantTable',
+            'orderItems.product.category',
+            'handledBy',
+        ]);
+
+        $beverageItems = $order->orderItems
+            ->filter(fn ($item): bool => $this->isPreparedByBeverageStation($item))
+            ->values();
+
+        $kitchenItems = $order->orderItems
+            ->reject(fn ($item): bool => $this->isBeverageItem($item))
+            ->values();
+
+        $takeawayItems = $order->orderItems->values();
+
+        return view('print.order-pack', compact(
+            'order',
+            'kitchenItems',
+            'beverageItems',
+            'takeawayItems'
+        ));
     }
 
-    private function isNonPreparedDrink($item): bool
+    private function isBeverageItem($item): bool
     {
-        $category = mb_strtolower($item->product?->category?->name ?? '');
-        return in_array($category, ['gaseosas y agua', 'cerveza'], true);
+        $productName = mb_strtolower(trim($item->product?->name ?? ''));
+        $category = mb_strtolower(trim($item->product?->category?->name ?? ''));
+
+        if ($this->isPreparedByWaiter($productName)) {
+            return true;
+        }
+
+        if (in_array($category, [
+            'jugos y bebidas preparadas',
+            'gaseosas y agua',
+            'cerveza',
+            'granizadas',
+        ], true)) {
+            return true;
+        }
+
+        return str_contains($productName, 'gaseosa')
+            || str_contains($productName, 'agua')
+            || str_contains($productName, 'cerveza')
+            || str_contains($productName, 'jugo')
+            || str_contains($productName, 'limonada')
+            || str_contains($productName, 'milo')
+            || str_contains($productName, 'granizada')
+            || str_contains($productName, 'cerezada');
+    }
+
+    private function isPreparedByBeverageStation($item): bool
+    {
+        $productName = mb_strtolower(trim($item->product?->name ?? ''));
+        $category = mb_strtolower(trim($item->product?->category?->name ?? ''));
+
+        if ($this->isPreparedByWaiter($productName)) {
+            return false;
+        }
+
+        return in_array($category, [
+            'jugos y bebidas preparadas',
+            'granizadas',
+        ], true);
+    }
+
+    private function isPreparedByWaiter(string $productName): bool
+    {
+        return in_array($productName, [
+            'soda preparada',
+            'tamarindo preparada',
+            'tamarindo preparada (con limon)',
+        ], true);
     }
 
     public function account(TableSession $tableSession): View
@@ -41,6 +117,7 @@ class PrintController extends Controller
         $this->loadActiveAccount($tableSession);
         $orders = $tableSession->orders;
         $total = $orders->sum('total');
+
         return view('admin.accounts.show', compact('tableSession', 'orders', 'total'));
     }
 
@@ -49,49 +126,137 @@ class PrintController extends Controller
         $this->loadActiveAccount($tableSession);
         $orders = $tableSession->orders;
         $total = $orders->sum('total');
+
         return view('print.account', compact('tableSession', 'orders', 'total'));
     }
 
     private function loadActiveAccount(TableSession $tableSession): void
     {
-        $tableSession->load(['restaurantTable', 'orders' => fn ($query) => $query->where('status', '!=', OrderStatus::COMPLETED->value)->with('orderItems.product')->orderBy('created_at')]);
-        if ($tableSession->status !== TableSessionStatus::Active) throw ValidationException::withMessages(['table' => ['La sesión de esta mesa ya está cerrada.']]);
+        $tableSession->load([
+            'restaurantTable',
+            'orders' => fn ($query) => $query
+                ->where('status', '!=', OrderStatus::COMPLETED->value)
+                ->with('orderItems.product')
+                ->orderBy('created_at'),
+        ]);
+
+        if ($tableSession->status !== TableSessionStatus::Active) {
+            throw ValidationException::withMessages([
+                'table' => ['La sesión de esta mesa ya está cerrada.'],
+            ]);
+        }
     }
 
     public function payTableSession(TableSession $tableSession): RedirectResponse
     {
         DB::transaction(function () use ($tableSession): void {
-            $session = TableSession::query()->lockForUpdate()->with('restaurantTable')->findOrFail($tableSession->id);
-            if ($session->status !== TableSessionStatus::Active) throw ValidationException::withMessages(['table' => ['La cuenta de esta mesa ya está cerrada.']]);
-            $orders = $session->orders()->lockForUpdate()->where('status', '!=', OrderStatus::COMPLETED->value)->get();
-            if ($orders->isEmpty()) throw ValidationException::withMessages(['table' => ['No hay pedidos pendientes de cobro en esta mesa.']]);
-            $notDelivered = $orders->filter(fn (Order $order): bool => $order->status !== OrderStatus::DELIVERED);
+            $session = TableSession::query()
+                ->lockForUpdate()
+                ->with('restaurantTable')
+                ->findOrFail($tableSession->id);
+
+            if ($session->status !== TableSessionStatus::Active) {
+                throw ValidationException::withMessages([
+                    'table' => ['La cuenta de esta mesa ya está cerrada.'],
+                ]);
+            }
+
+            $orders = $session->orders()
+                ->lockForUpdate()
+                ->where('status', '!=', OrderStatus::COMPLETED->value)
+                ->get();
+
+            if ($orders->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'table' => ['No hay pedidos pendientes de cobro en esta mesa.'],
+                ]);
+            }
+
+            $notDelivered = $orders->filter(
+                fn (Order $order): bool => $order->status !== OrderStatus::DELIVERED
+            );
+
             if ($notDelivered->isNotEmpty()) {
                 $blocked = $notDelivered->map(function (Order $order): string {
                     return '#'.$order->id.' ('.$order->status?->value.')';
                 })->implode(', ');
-                throw ValidationException::withMessages(['status' => ["No se puede cerrar la cuenta. Los siguientes pedidos todavía no están ENTREGADOS: {$blocked}."]]);
+
+                throw ValidationException::withMessages([
+                    'status' => [
+                        "No se puede cerrar la cuenta. Los siguientes pedidos todavía no están ENTREGADOS: {$blocked}.",
+                    ],
+                ]);
             }
+
             foreach ($orders as $order) {
-                $order->update(['status' => OrderStatus::COMPLETED, 'paid_at' => now(), 'paid_by_user_id' => Auth::id()]);
-                $order->statusHistories()->create(['previous_status' => OrderStatus::DELIVERED->value, 'new_status' => OrderStatus::COMPLETED->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
+                $order->update([
+                    'status' => OrderStatus::COMPLETED,
+                    'paid_at' => now(),
+                    'paid_by_user_id' => Auth::id(),
+                ]);
+
+                $order->statusHistories()->create([
+                    'previous_status' => OrderStatus::DELIVERED->value,
+                    'new_status' => OrderStatus::COMPLETED->value,
+                    'changed_by_user_id' => Auth::id(),
+                    'changed_at' => now(),
+                ]);
             }
-            $session->update(['status' => TableSessionStatus::CLOSED, 'ended_at' => now()]);
-            $session->restaurantTable?->update(['status' => TableStatus::AVAILABLE]);
+
+            $session->update([
+                'status' => TableSessionStatus::CLOSED,
+                'ended_at' => now(),
+            ]);
+
+            $session->restaurantTable?->update([
+                'status' => TableStatus::AVAILABLE,
+            ]);
         });
-        $route = Auth::user()?->role?->value === 'MESERO' ? 'waiter.orders' : 'admin.orders.index';
-        return redirect()->route($route)->with('success', 'Cuenta pagada. La mesa quedó disponible nuevamente.');
+
+        $route = Auth::user()?->role?->value === 'MESERO'
+            ? 'waiter.orders'
+            : 'admin.orders.index';
+
+        return redirect()
+            ->route($route)
+            ->with('success', 'Cuenta pagada. La mesa quedó disponible nuevamente.');
     }
 
     public function payOrder(Order $order): RedirectResponse
     {
-        if ($order->type?->value !== 'PARA_LLEVAR') throw ValidationException::withMessages(['order' => ['Los pedidos en mesa se cobran mediante la cuenta de la mesa.']]);
-        if ($order->status !== OrderStatus::DELIVERED) throw ValidationException::withMessages(['status' => ['El pedido debe estar ENTREGADO antes de registrar el pago.']]);
+        if ($order->type?->value !== 'PARA_LLEVAR') {
+            throw ValidationException::withMessages([
+                'order' => ['Los pedidos en mesa se cobran mediante la cuenta de la mesa.'],
+            ]);
+        }
+
+        if ($order->status !== OrderStatus::DELIVERED) {
+            throw ValidationException::withMessages([
+                'status' => ['El pedido debe estar ENTREGADO antes de registrar el pago.'],
+            ]);
+        }
+
         DB::transaction(function () use ($order): void {
-            $order->update(['status' => OrderStatus::COMPLETED, 'paid_at' => now(), 'paid_by_user_id' => Auth::id()]);
-            $order->statusHistories()->create(['previous_status' => OrderStatus::DELIVERED->value, 'new_status' => OrderStatus::COMPLETED->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
+            $order->update([
+                'status' => OrderStatus::COMPLETED,
+                'paid_at' => now(),
+                'paid_by_user_id' => Auth::id(),
+            ]);
+
+            $order->statusHistories()->create([
+                'previous_status' => OrderStatus::DELIVERED->value,
+                'new_status' => OrderStatus::COMPLETED->value,
+                'changed_by_user_id' => Auth::id(),
+                'changed_at' => now(),
+            ]);
         });
-        $route = Auth::user()?->role?->value === 'MESERO' ? 'waiter.orders' : 'admin.orders.index';
-        return redirect()->route($route)->with('success', 'Pago registrado. Pedido terminado.');
+
+        $route = Auth::user()?->role?->value === 'MESERO'
+            ? 'waiter.orders'
+            : 'admin.orders.index';
+
+        return redirect()
+            ->route($route)
+            ->with('success', 'Pago registrado. Pedido terminado.');
     }
 }
