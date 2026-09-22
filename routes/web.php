@@ -25,6 +25,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/waiter/orders', [WaiterController::class, 'index'])->middleware('role:ADMIN,MESERO')->name('waiter.orders');
     Route::get('/admin/orders/create', [OrderController::class, 'create'])->middleware('role:ADMIN,MESERO')->name('admin.orders.create');
     Route::post('/admin/orders', [OrderController::class, 'store'])->middleware('role:ADMIN,MESERO')->name('admin.orders.store');
+    Route::get('/admin/orders/{order}/add', [OrderController::class, 'add'])->middleware('role:ADMIN,MESERO')->name('admin.orders.add');
+    Route::post('/admin/orders/{order}/add', [OrderController::class, 'storeAddition'])->middleware('role:ADMIN,MESERO')->name('admin.orders.add.store');
 
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware('role:ADMIN')->name('admin.dashboard');
     Route::get('/admin/reports/daily', [SalesReportController::class, 'daily'])->middleware('role:ADMIN')->name('admin.reports.daily');
