@@ -119,7 +119,7 @@ class OrderController extends Controller
 
                 $line=$price*$quantity;
                 $packagingFee+=TakeawayPackaging::fee($p,$quantity,$type->value);
-                $round->orderItems()->create(['product_id'=>$p->id,'quantity'=>$quantity,'unit_price'=>$price,'total'=>$line,'notes'=>$notes]);
+                OrderItem::create(['order_id'=>$order->id,'order_round_id'=>$round->id,'product_id'=>$p->id,'quantity'=>$quantity,'unit_price'=>$price,'total'=>$line,'notes'=>$notes,'sent_at'=>null]);
                 $subtotal+=$line;
             }
 
