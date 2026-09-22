@@ -18,25 +18,25 @@
 
     <section class="waiter-toolbar panel" aria-label="Filtros de pedidos">
         <div><strong>Pedidos activos</strong><span id="visible-count">{{ $counts['total'] }} {{ $counts['total'] === 1 ? 'pedido' : 'pedidos' }}</span></div>
-        <div class="waiter-filters" role="group" aria-label="Filtrar pedidos"><button class="filter-pill is-active" type="button" data-filter="all">Todos</button><button class="filter-pill" type="button" data-filter="table">Mesas</button><button class="filter-pill" type="button" data-filter="takeaway">Para llevar</button><input id="waiter-search" type="search" placeholder="Buscar # o mesa..." aria-label="Buscar pedidos"></div>
+        <div class="waiter-filters" role="group" aria-label="Filtrar pedidos"><button class="filter-pill is-active" type="button" data-filter="all">Todos</button><button class="filter-pill" type="button" data-filter="table">Mesas</button><button class="filter-pill" type="button" data-filter="takeaway">Para llevar</button><button class="filter-pill" type="button" data-filter="delivery">Domicilios</button><input id="waiter-search" type="search" placeholder="Buscar # o mesa..." aria-label="Buscar pedidos"></div>
     </section>
 
     <div class="waiter-grid" id="waiter-grid">
         @forelse ($orders as $order)
-            @php $status = $order->status; $isTakeaway = $order->type?->value === 'PARA_LLEVAR'; $tableNumber = $order->tableSession?->restaurantTable?->number; @endphp
-            <article class="waiter-card" data-kind="{{ $isTakeaway ? 'takeaway' : 'table' }}" data-search="{{ strtolower('#'.$order->id.' '.($tableNumber ? 'mesa '.$tableNumber : 'para llevar')) }}">
-                <div class="waiter-card-top"><div><span class="eyebrow">Pedido #{{ $order->id }}</span><h3>{{ $isTakeaway ? 'Para llevar' : 'Mesa '.$tableNumber }}</h3></div><span class="status status-order status-{{ strtolower(str_replace(' ','-',$status->value)) }}">{{ $status->value }}</span></div>
-                <div class="waiter-meta"><div><span>Tipo</span><strong>{{ $isTakeaway ? '🥡 Para llevar' : '🪑 Servicio en mesa' }}</strong></div><div><span>Hora</span><strong>{{ $order->created_at?->format('H:i') ?? '—' }}</strong></div></div>
+            @php $status = $order->status; $isTable = $order->type?->value === 'MESA'; $isTakeaway = $order->type?->value === 'PARA_LLEVAR'; $isDelivery = $order->type?->value === 'DOMICILIO'; $tableNumber = $order->tableSession?->restaurantTable?->number; $canAdd = $isTable ? in_array($status, [\App\Enums\OrderStatus::PENDING, \App\Enums\OrderStatus::PREPARING, \App\Enums\OrderStatus::DELIVERED], true) : in_array($status, [\App\Enums\OrderStatus::PENDING, \App\Enums\OrderStatus::PREPARING], true); @endphp
+            <article class="waiter-card" data-kind="{{ $isDelivery ? 'delivery' : ($isTakeaway ? 'takeaway' : 'table') }}" data-search="{{ strtolower('#'.$order->id.' '.($tableNumber ? 'mesa '.$tableNumber : 'para llevar')) }}">
+                <div class="waiter-card-top"><div><span class="eyebrow">Pedido #{{ $order->id }}</span><h3>{{ $isDelivery ? 'Domicilio' : ($isTakeaway ? 'Para llevar' : 'Mesa '.$tableNumber) }}</h3></div><span class="status status-order status-{{ strtolower(str_replace(' ','-',$status->value)) }}">{{ $status->value }}</span></div>
+                <div class="waiter-meta"><div><span>Tipo</span><strong>{{ $isDelivery ? '🛵 Domicilio' : ($isTakeaway ? '🥡 Para llevar' : '🪑 Servicio en mesa') }}</strong></div><div><span>Hora</span><strong>{{ $order->created_at?->format('H:i') ?? '—' }}</strong></div></div>
                 @if ($order->notes)<div class="info-box"><strong>Nota general para cocina</strong><br>{{ $order->notes }}</div>@endif
                 <div class="waiter-items">@foreach ($order->orderItems as $item)<div><span><strong>{{ $item->quantity }}×</strong> {{ $item->product?->name ?? 'Producto' }}@if($item->notes)<small class="item-note-display">⚠ {{ $item->notes }}</small>@endif</span><strong>${{ number_format($item->total, 0, ',', '.') }}</strong></div>@endforeach</div>
                 @if((int)$order->packaging_fee > 0)<div class="waiter-packaging"><span>🥡 Icopores / empaque para llevar</span><strong>+${{ number_format($order->packaging_fee, 0, ',', '.') }}</strong></div>@endif<div class="waiter-total"><span>Total</span><strong>${{ number_format($order->total, 0, ',', '.') }}</strong></div>
-                <div class="waiter-card-actions">
+                <div class="waiter-card-actions">@if($canAdd)<a class="button" href="{{ route('admin.orders.add',$order) }}">＋ Agregar</a>@endif
                     @if ($status === \App\Enums\OrderStatus::PENDING)
                         <span class="muted action-message">Esperando impresión en caja.</span>
                     @elseif ($status === \App\Enums\OrderStatus::PREPARING)
                         <form method="POST" action="{{ route('admin.orders.deliver', $order) }}">@csrf @method('PUT')<button class="button button-primary" type="submit">Marcar entregado</button></form>
                     @elseif ($status === \App\Enums\OrderStatus::DELIVERED)
-                        @if($isTakeaway)
+                        @if($isTakeaway || $isDelivery)
                             <form method="POST" action="{{ route('admin.orders.pay', $order) }}" onsubmit="return confirm('¿Confirmas que el pedido fue pagado?');">@csrf<button class="button button-primary" type="submit">💰 Registrar pago</button></form>
                         @elseif($order->tableSession)
                             <a class="button button-primary" href="{{ route('admin.accounts.show',$order->tableSession) }}">💰 Ver / cobrar cuenta</a>
