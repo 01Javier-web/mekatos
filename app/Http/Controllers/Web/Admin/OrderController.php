@@ -28,12 +28,17 @@ use Illuminate\View\View;
 class OrderController extends Controller
 {
     public function index(Request $request): View { $orders=Order::query()->with(['tableSession.restaurantTable','orderItems.product','handledBy'])->when($request->status,fn($q,$s)=>$q->where('status',$s),fn($q)=>$q->where('status','!=',OrderStatus::COMPLETED->value))->oldest()->get(); return view('admin.orders.index',['orders'=>$orders,'statuses'=>OrderStatus::operationalCases(),'selectedStatus'=>$request->status]); }
-    public function pending(): JsonResponse { $orders=Order::query()->where('status',OrderStatus::PENDING->value)->with(['tableSession.restaurantTable','handledBy'])->oldest()->get(); return response()->json(['count'=>$orders->count(),'ids'=>$orders->pluck('id')->values(),'orders'=>$orders->map(fn(Order $o)=>['id'=>$o->id,'location'=>$o->type?->value==='PARA_LLEVAR'?'PARA LLEVAR':'MESA '.($o->tableSession?->restaurantTable?->number??'—'),'time'=>$o->created_at?->format('H:i'),'responsible'=>$o->handledBy?->name??'Pedido QR'])->values()]); }
+    public function pending(): JsonResponse { $orders=Order::query()->where('status',OrderStatus::PENDING->value)->with(['tableSession.restaurantTable','handledBy'])->oldest()->get(); return response()->json(['count'=>$orders->count(),'ids'=>$orders->pluck('id')->values(),'orders'=>$orders->map(fn(Order $o)=>['id'=>$o->id,'location'=>$o->type?->value==='PARA_LLEVAR'?'PARA LLEVAR':($o->type?->value==='DOMICILIO'?'DOMICILIO':'MESA '.($o->tableSession?->restaurantTable?->number??'—')),'time'=>$o->created_at?->format('H:i'),'responsible'=>$o->handledBy?->name??'Pedido QR'])->values()]); }
     public function create(): View { return view('admin.orders.create-v2',['products'=>Product::query()->with(['category','beverageOptions'])->where('is_available',true)->orderBy('name')->get(),'tables'=>RestaurantTable::query()->where('status','!=',TableStatus::CLEANING->value)->orderBy('number')->get(),'categories'=>Category::query()->orderBy('name')->get(),'orderTypes'=>OrderType::cases(),'comboBeverages'=>collect(ComboOptions::types())->mapWithKeys(fn($label,$type)=>[$type=>['label'=>$label,'flavors'=>ComboOptions::availableFlavors($type)]])->all(),'comboPrice'=>ComboOptions::PRICE]); }
     public function store(Request $request): RedirectResponse {
         $v=$request->validate([
             'type'=>['required',Rule::enum(OrderType::class)],
             'table_id'=>['nullable','integer','exists:restaurant_tables,id'],
+            'customer_name'=>['nullable','string','max:255'],
+            'customer_phone'=>['nullable','string','max:30'],
+            'delivery_address'=>['nullable','string','max:255'],
+            'delivery_reference'=>['nullable','string','max:255'],
+            'delivery_fee'=>['nullable','regex:/^\\d+$/','max:9999999999'],
             'items'=>['required','array'],
             'items.*'=>['nullable','integer','min:0','max:99'],
             'item_notes'=>['nullable','array'],
@@ -58,7 +63,15 @@ class OrderController extends Controller
         $v['items']=validator(['items'=>$v['items']],['items'=>['required','array','min:1'],'items.*'=>['required','integer','min:1','max:99']])->validate()['items'];
         $type=OrderType::from($v['type']);
         if($type===OrderType::TABLE&&empty($v['table_id']))throw ValidationException::withMessages(['table_id'=>['Selecciona una mesa para un pedido en mesa.']]);
-        if($type===OrderType::TAKEAWAY&&!empty($v['table_id']))throw ValidationException::withMessages(['table_id'=>['Un pedido para llevar no puede tener una mesa asociada.']]);
+        if($type!==OrderType::TABLE&&!empty($v['table_id']))throw ValidationException::withMessages(['table_id'=>['Los pedidos que no son en mesa no pueden tener una mesa asociada.']]);
+        if($type===OrderType::DELIVERY){
+            validator($v,[
+                'customer_name'=>['required','string','max:255'],
+                'customer_phone'=>['required','string','max:30'],
+                'delivery_address'=>['required','string','max:255'],
+                'delivery_fee'=>['required','regex:/^\\d+$/','max:9999999999'],
+            ])->validate();
+        }
 
         $order=DB::transaction(function()use($v,$type){
             $session=null;
@@ -70,7 +83,7 @@ class OrderController extends Controller
                 $table->update(['status'=>TableStatus::OCCUPIED]);
             }
 
-            $order=Order::create(['table_session_id'=>$session?->id,'type'=>$type,'status'=>OrderStatus::PENDING,'subtotal'=>0,'packaging_fee'=>0,'tax'=>0,'total'=>0,'notes'=>$v['notes']??null,'handled_by_user_id'=>Auth::id()]);
+            $order=Order::create(['table_session_id'=>$session?->id,'type'=>$type,'status'=>OrderStatus::PENDING,'subtotal'=>0,'packaging_fee'=>0,'delivery_fee'=>(int)($v['delivery_fee']??0),'tax'=>0,'total'=>0,'customer_name'=>$v['customer_name']??null,'customer_phone'=>$v['customer_phone']??null,'delivery_address'=>$v['delivery_address']??null,'delivery_reference'=>$v['delivery_reference']??null,'notes'=>$v['notes']??null,'handled_by_user_id'=>Auth::id()]);
             $subtotal=0;
             $packagingFee=0;
 
