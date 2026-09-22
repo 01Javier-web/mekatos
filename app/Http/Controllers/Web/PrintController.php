@@ -72,8 +72,10 @@ class PrintController extends Controller
 
         $printItems = $isAddition ? $unsentItems : $order->orderItems->values();
 
-        $freshOrder = $order->fresh(['tableSession.restaurantTable', 'handledBy', 'orderItems.product.category']);
-        $roundNumber = (int) $freshOrder->rounds()->max('number');
+        $freshOrder = $order->fresh(['tableSession.restaurantTable', 'handledBy', 'orderItems.product.category', 'rounds.createdBy']);
+        $latestRound = $freshOrder->rounds->sortByDesc('number')->first();
+        $roundNumber = (int) ($latestRound?->number ?? 1);
+        $roundCreatedBy = $latestRound?->createdBy?->name;
 
         return view('print.order-pack', [
             'order' => $freshOrder,
@@ -82,6 +84,7 @@ class PrintController extends Controller
             'takeawayItems' => $printItems,
             'isAddition' => $isAddition,
             'roundNumber' => $roundNumber,
+            'roundCreatedBy' => $roundCreatedBy,
         ]);
     }
 
