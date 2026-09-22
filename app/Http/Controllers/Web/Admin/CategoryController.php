@@ -28,9 +28,9 @@ class CategoryController extends Controller
     {
         $category->update(['is_active' => ! $category->is_active]);
 
-        return redirect()->route('admin.settings.categories.index')->with(
+        return redirect()->route('admin.categories.index')->with(
             'success',
-            $category->is_active ? 'Categoría habilitada.' : 'Categoría deshabilitada.'
+            $category->is_active ? 'Categoría habilitada.' : 'Categoría deshabilitada.
         );
     }
 
