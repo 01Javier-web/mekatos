@@ -20,6 +20,16 @@
                 <a class="button button-primary" href="{{ route('admin.settings.products.index') }}">Gestionar productos</a>
             </div>
         </article>
+
+        <article class="settings-card">
+            <div class="settings-icon" aria-hidden="true">📂</div>
+            <div class="settings-card-content">
+                <span class="settings-label">Catálogo</span>
+                <h3>Gestión de categorías</h3>
+                <p>Crea nuevas categorías, modifica su información o elimina categorías del menú.</p>
+                <a class="button button-primary" href="{{ route('admin.settings.categories.index') }}">Gestionar categorías</a>
+            </div>
+        </article>
     </section>
 </div>
 
