@@ -72,6 +72,106 @@ class ManualOrderTest extends TestCase
         ]);
     }
 
+    public function test_takeaway_charges_packaging_per_eligible_beverage_unit(): void
+    {
+        $waiter = $this->waiter();
+
+        $category = Category::create([
+            'name' => 'Bebidas de prueba',
+            'description' => 'Categoría para pruebas de empaque',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $juice = Product::create([
+            'category_id' => $category->id,
+            'name' => 'Jugo Natural Jarra',
+            'description' => null,
+            'price' => 8500,
+            'is_available' => true,
+        ]);
+
+        $lemonade = Product::create([
+            'category_id' => $category->id,
+            'name' => 'Limonada Jarra',
+            'description' => null,
+            'price' => 6500,
+            'is_available' => true,
+        ]);
+
+        $soda = Product::create([
+            'category_id' => $category->id,
+            'name' => 'Soda Preparada',
+            'description' => null,
+            'price' => 7000,
+            'is_available' => true,
+        ]);
+
+        $coke = Product::create([
+            'category_id' => $category->id,
+            'name' => 'Gaseosa 350 ml',
+            'description' => null,
+            'price' => 4500,
+            'is_available' => true,
+        ]);
+
+        $response = $this->actingAs($waiter)->post(route('admin.orders.store'), [
+            'type' => OrderType::TAKEAWAY->value,
+            'items' => [
+                $juice->id => 2,
+                $lemonade->id => 1,
+                $soda->id => 1,
+                $coke->id => 1,
+            ],
+        ]);
+
+        $order = Order::query()->latest('id')->first();
+
+        $response->assertRedirect(route('waiter.orders'));
+        $this->assertNotNull($order);
+        $this->assertSame(6000, (int) $order->packaging_fee);
+        $this->assertSame(39000.0, (float) $order->subtotal);
+        $this->assertSame(45000.0, (float) $order->total);
+    }
+
+    public function test_table_order_does_not_charge_beverage_packaging(): void
+    {
+        $waiter = $this->waiter();
+
+        $category = Category::create([
+            'name' => 'Bebidas en mesa',
+            'description' => 'Categoría para pruebas de empaque',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $juice = Product::create([
+            'category_id' => $category->id,
+            'name' => 'Jugo Natural Jarra',
+            'description' => null,
+            'price' => 8500,
+            'is_available' => true,
+        ]);
+
+        $table = RestaurantTable::create([
+            'number' => 11,
+            'capacity' => 4,
+            'qr_token' => 'manual-order-11',
+            'status' => TableStatus::AVAILABLE,
+        ]);
+
+        $this->actingAs($waiter)->post(route('admin.orders.store'), [
+            'type' => OrderType::TABLE->value,
+            'table_id' => $table->id,
+            'items' => [$juice->id => 2],
+        ])->assertRedirect(route('waiter.orders'));
+
+        $order = Order::query()->latest('id')->first();
+
+        $this->assertSame(0, (int) $order->packaging_fee);
+        $this->assertSame(17000.0, (float) $order->total);
+    }
+
     public function test_waiter_can_create_table_order_and_open_active_session(): void
     {
         $waiter = $this->waiter();
