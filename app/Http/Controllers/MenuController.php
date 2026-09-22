@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Support\ComboOptions;
 use Illuminate\Http\JsonResponse;
 
 class MenuController extends Controller
@@ -26,8 +27,21 @@ class MenuController extends Controller
             },
         ])->get();
 
+        $comboBeverages = [];
+
+        foreach (ComboOptions::types() as $type => $label) {
+            $comboBeverages[$type] = [
+                'label' => $label,
+                'flavors' => ComboOptions::availableFlavors($type),
+            ];
+        }
+
         return response()->json([
             'categories' => $categories,
+            'combo' => [
+                'price' => ComboOptions::PRICE,
+                'beverages' => $comboBeverages,
+            ],
         ]);
     }
 }
