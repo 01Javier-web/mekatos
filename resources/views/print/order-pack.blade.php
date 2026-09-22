@@ -46,7 +46,7 @@
                 <div class="meta">
                     <div><strong>Pedido:</strong> #{{ $order->id }}</div>
                     <div><strong>Hora:</strong> {{ now()->format('H:i') }}</div>
-                    <div><strong>Responsable:</strong> {{ $order->handledBy?->name ?? 'Pedido QR' }}</div>
+                    <div><strong>{{ $isAddition ? 'Agregado por' : 'Responsable' }}:</strong> {{ $isAddition ? ($roundCreatedBy ?? $order->handledBy?->name ?? 'Pedido QR') : ($order->handledBy?->name ?? 'Pedido QR') }}</div>
                     @if($order->type?->value === 'DOMICILIO')
                         <div><strong>Cliente:</strong> {{ $order->customer_name }}</div>
                         <div><strong>Teléfono:</strong> {{ $order->customer_phone }}</div>
