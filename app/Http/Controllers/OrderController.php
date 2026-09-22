@@ -109,6 +109,7 @@ class OrderController extends Controller
                 'notes' => $validatedData['notes'] ?? null,
                 'handled_by_user_id' => Auth::id(),
             ]);
+            $round = $order->rounds()->create(['number' => 1, 'created_by_user_id' => Auth::id()]);
             $subtotal = 0;
             $packagingFee = 0;
 
@@ -153,7 +154,7 @@ class OrderController extends Controller
                 $lineTotal = $unitPrice * $quantity;
                 $packagingFee += TakeawayPackaging::fee($product, $quantity, $type->value);
 
-                $order->orderItems()->create([
+                $round->orderItems()->create([
                     'product_id' => $product->id,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
