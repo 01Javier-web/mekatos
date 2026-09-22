@@ -56,11 +56,14 @@ Route::middleware('auth')->group(function () {
         Route::delete('/admin/settings/products/{product}', [ProductController::class, 'destroy'])->name('admin.settings.products.destroy');
 
         Route::get('/admin/categories', [CategoryController::class, 'index'])->name('admin.categories.index');
-        Route::get('/admin/categories/create', [CategoryController::class, 'create'])->name('admin.categories.create');
-        Route::post('/admin/categories', [CategoryController::class, 'store'])->name('admin.categories.store');
-        Route::get('/admin/categories/{category}/edit', [CategoryController::class, 'edit'])->name('admin.categories.edit');
-        Route::put('/admin/categories/{category}', [CategoryController::class, 'update'])->name('admin.categories.update');
-        Route::delete('/admin/categories/{category}', [CategoryController::class, 'destroy'])->name('admin.categories.destroy');
+        Route::put('/admin/categories/{category}/availability', [CategoryController::class, 'toggleAvailability'])->name('admin.categories.availability');
+
+        Route::get('/admin/settings/categories', [CategoryController::class, 'settingsIndex'])->name('admin.settings.categories.index');
+        Route::get('/admin/settings/categories/create', [CategoryController::class, 'create'])->name('admin.settings.categories.create');
+        Route::post('/admin/settings/categories', [CategoryController::class, 'store'])->name('admin.settings.categories.store');
+        Route::get('/admin/settings/categories/{category}/edit', [CategoryController::class, 'edit'])->name('admin.settings.categories.edit');
+        Route::put('/admin/settings/categories/{category}', [CategoryController::class, 'update'])->name('admin.settings.categories.update');
+        Route::delete('/admin/settings/categories/{category}', [CategoryController::class, 'destroy'])->name('admin.settings.categories.destroy');
 
         Route::get('/admin/products', [ProductController::class, 'index'])->name('admin.products.index');
         Route::put('/admin/products/{product}/availability', [ProductController::class, 'toggleAvailability'])->name('admin.products.availability');
