@@ -10,7 +10,7 @@
             <h2>Editar categoría</h2>
             <p>Actualiza la información de {{ $category->name }}.</p>
         </div>
-        <a class="button" href="{{ route('admin.categories.index') }}">Volver</a>
+        <a class="button" href="{{ route('admin.settings.categories.index') }}">Volver</a>
     </div>
 
     @if ($errors->any())
@@ -23,7 +23,7 @@
         </div>
     @endif
 
-    <form class="form-card" method="POST" action="{{ route('admin.categories.update', $category) }}">
+    <form class="form-card" method="POST" action="{{ route('admin.settings.categories.update', $category) }}">
         @csrf
         @method('PUT')
 
@@ -50,7 +50,7 @@
         </label>
 
         <div class="form-actions">
-            <a class="button" href="{{ route('admin.categories.index') }}">Cancelar</a>
+            <a class="button" href="{{ route('admin.settings.categories.index') }}">Cancelar</a>
             <button class="button button-primary" type="submit">Guardar cambios</button>
         </div>
     </form>
