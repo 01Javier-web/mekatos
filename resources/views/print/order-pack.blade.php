@@ -51,7 +51,7 @@
                 @foreach($order->orderItems as $item)
                     <div class="line">
                         <span class="line-name">{{ $item->quantity }} × {{ $item->product?->name ?? 'Producto' }}</span>
-                        <span class="line-price">\$ {{ number_format($item->total, 0, ',', '.') }}</span>
+                        <span class="line-price">${{ number_format($item->total, 0, ',', '.') }}</span>
                     </div>
                     @if($item->notes)
                         <div class="line-note">Detalle: {{ $item->notes }}</div>
@@ -60,18 +60,18 @@
                 <div class="separator"></div>
                 <div class="total-line">
                     <span>SUBTOTAL</span>
-                    <span>\${{ number_format($order->subtotal, 0, ',', '.') }}</span>
+                    <span>${{ number_format($order->subtotal, 0, ',', '.') }}</span>
                 </div>
                 @if((int) $order->packaging_fee > 0)
                     <div class="total-line">
                         <span>EMPAQUES</span>
-                        <span>\${{ number_format($order->packaging_fee, 0, ',', '.') }}</span>
+                        <span>${{ number_format($order->packaging_fee, 0, ',', '.') }}</span>
                     </div>
                 @endif
                 <div class="separator"></div>
                 <div class="total-line grand-total">
                     <span>TOTAL</span>
-                    <span>\${{ number_format($order->total, 0, ',', '.') }}</span>
+                    <span>${{ number_format($order->total, 0, ',', '.') }}</span>
                 </div>
                 @if($order->notes)
                     <div class="general-note">
