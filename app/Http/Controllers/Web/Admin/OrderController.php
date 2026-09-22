@@ -14,7 +14,7 @@ use App\Support\BeverageOptions;
 use App\Support\ComboOptions;
 use App\Support\JuiceOptions;
 use App\Support\TakeawayPackaging;
-use App\TableSessionStatus;
+use App\Enums\TableSessionStatus;
 use App\TableStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -295,7 +295,7 @@ class OrderController extends Controller
         }
 
         if ($order->type === OrderType::TABLE) {
-            if (! $order->tableSession || $order->tableSession->status !== AppTableSessionStatus::Active) {
+            if (! $order->tableSession || $order->tableSession->status !== TableSessionStatus::Active) {
                 throw ValidationException::withMessages([
                     'order' => ['La sesión de esta mesa ya está cerrada.'],
                 ]);
