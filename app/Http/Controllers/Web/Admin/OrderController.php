@@ -129,6 +129,195 @@ class OrderController extends Controller
         $route=Auth::user()?->role?->value==='MESERO'?'waiter.orders':'admin.orders.show';
         return redirect()->route($route,$route==='admin.orders.show'?$order:[])->with('success',"Pedido #{$order->id} creado y enviado a caja.");
     }
+    public function add(Order $order): View
+    {
+        $this->ensureAdditionAllowed($order);
+
+        return view('admin.orders.add-v2', [
+            'order' => $order->load(['tableSession.restaurantTable']),
+            'products' => Product::query()
+                ->with(['category', 'beverageOptions'])
+                ->where('is_available', true)
+                ->orderBy('name')
+                ->get(),
+            'categories' => Category::query()->orderBy('name')->get(),
+            'comboBeverages' => collect(ComboOptions::types())
+                ->mapWithKeys(fn ($label, $type) => [
+                    $type => [
+                        'label' => $label,
+                        'flavors' => ComboOptions::availableFlavors($type),
+                    ],
+                ])
+                ->all(),
+        ]);
+    }
+
+    public function storeAddition(Request $request, Order $order): RedirectResponse
+    {
+        $this->ensureAdditionAllowed($order);
+
+        $v = $request->validate([
+            'items' => ['required', 'array'],
+            'items.*' => ['nullable', 'integer', 'min:0', 'max:99'],
+            'item_notes' => ['nullable', 'array'],
+            'item_notes.*' => ['nullable', 'string', 'max:500'],
+            'juice_preparation' => ['nullable', 'array'],
+            'juice_preparation.*' => ['nullable', Rule::in([JuiceOptions::WATER, JuiceOptions::MILK])],
+            'juice_fruit' => ['nullable', 'array'],
+            'juice_fruit.*' => ['nullable', Rule::in(array_keys(JuiceOptions::FRUITS))],
+            'juice_other_fruit' => ['nullable', 'array'],
+            'juice_other_fruit.*' => ['nullable', 'string', 'max:100'],
+            'beverage_option' => ['nullable', 'array'],
+            'beverage_option.*' => ['nullable', 'string', 'max:100'],
+            'combo' => ['nullable', 'array'],
+            'combo.*' => ['nullable', Rule::in([ComboOptions::NO, ComboOptions::YES])],
+            'combo_beverage_type' => ['nullable', 'array'],
+            'combo_beverage_type.*' => ['nullable', Rule::in(array_keys(ComboOptions::types()))],
+            'combo_beverage_flavor' => ['nullable', 'array'],
+            'combo_beverage_flavor.*' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $v['items'] = array_filter($v['items'], static fn ($q) => (int) $q !== 0);
+        $v['items'] = validator(
+            ['items' => $v['items']],
+            ['items' => ['required', 'array', 'min:1'], 'items.*' => ['required', 'integer', 'min:1', 'max:99']]
+        )->validate()['items'];
+
+        DB::transaction(function () use ($v, $order): void {
+            $order = Order::query()->lockForUpdate()->with('orderItems')->findOrFail($order->id);
+
+            $nextRound = ((int) $order->rounds()->max('number')) + 1;
+            $round = $order->rounds()->create([
+                'number' => $nextRound,
+                'created_by_user_id' => Auth::id(),
+            ]);
+
+            foreach ($v['items'] as $productId => $quantity) {
+                $p = Product::query()->with(['category', 'beverageOptions'])->findOrFail($productId);
+
+                if (! $p->is_available) {
+                    throw ValidationException::withMessages([
+                        'items' => ["El producto '{$p->name}' no está disponible."],
+                    ]);
+                }
+
+                $quantity = (int) $quantity;
+                $price = (int) $p->price;
+                $notes = $v['item_notes'][$productId] ?? null;
+
+                if (JuiceOptions::isJuice($p)) {
+                    $prep = $v['juice_preparation'][$productId] ?? null;
+                    $fruit = $v['juice_fruit'][$productId] ?? null;
+                    $other = $v['juice_other_fruit'][$productId] ?? null;
+                    $details = $notes;
+
+                    if ($fruit === JuiceOptions::OTHER && trim((string) $other) === '') {
+                        $other = $details;
+                        $details = null;
+                    }
+
+                    $price = JuiceOptions::price($prep);
+                    $notes = JuiceOptions::buildNote($prep, $fruit, $other, $details);
+                } elseif (BeverageOptions::hasOptions($p)) {
+                    $notes = BeverageOptions::buildNote($p, $v['beverage_option'][$productId] ?? null, $notes);
+                } elseif (! empty($v['beverage_option'][$productId])) {
+                    throw ValidationException::withMessages([
+                        'items' => ["El producto '{$p->name}' no admite una opción de bebida."],
+                    ]);
+                }
+
+                $combo = ComboOptions::validate(
+                    $p,
+                    $v['combo'][$productId] ?? ComboOptions::NO,
+                    $v['combo_beverage_type'][$productId] ?? null,
+                    $v['combo_beverage_flavor'][$productId] ?? null
+                );
+
+                if ($combo['combo'] === ComboOptions::YES) {
+                    $price += ComboOptions::PRICE;
+                    $comboNote = ComboOptions::buildNote($combo);
+                    $notes = trim(implode(' · ', array_filter([$comboNote, $notes])));
+                }
+
+                $round->orderItems()->create([
+                    'product_id' => $p->id,
+                    'quantity' => $quantity,
+                    'unit_price' => $price,
+                    'total' => $price * $quantity,
+                    'notes' => $notes,
+                    'sent_at' => null,
+                ]);
+            }
+
+            $order->load('orderItems.product');
+            $subtotal = $order->orderItems->sum('total');
+            $packagingFee = $order->orderItems->sum(
+                fn ($item) => TakeawayPackaging::fee(
+                    $item->product,
+                    (int) $item->quantity,
+                    $order->type->value
+                )
+            );
+
+            $previousStatus = $order->status;
+            $order->update([
+                'subtotal' => $subtotal,
+                'packaging_fee' => $packagingFee,
+                'total' => $subtotal + $packagingFee + (int) $order->delivery_fee + (int) $order->tax,
+                'status' => OrderStatus::PENDING,
+            ]);
+
+            $order->statusHistories()->create([
+                'previous_status' => $previousStatus?->value,
+                'new_status' => OrderStatus::PENDING->value,
+                'changed_by_user_id' => Auth::id(),
+                'changed_at' => now(),
+                'notes' => "Adición #{$nextRound}",
+            ]);
+        });
+
+        return redirect()
+            ->route('waiter.orders')
+            ->with('success', "Adición agregada al pedido #{$order->id}. Quedó pendiente de impresión.");
+    }
+
+    private function ensureAdditionAllowed(Order $order): void
+    {
+        $order->loadMissing(['tableSession']);
+
+        if ($order->status === OrderStatus::COMPLETED) {
+            throw ValidationException::withMessages([
+                'order' => ['Este pedido ya está cerrado y no admite nuevas adiciones.'],
+            ]);
+        }
+
+        if ($order->type === OrderType::TABLE) {
+            if (! $order->tableSession || $order->tableSession->status !== AppTableSessionStatus::Active) {
+                throw ValidationException::withMessages([
+                    'order' => ['La sesión de esta mesa ya está cerrada.'],
+                ]);
+            }
+
+            if (! in_array($order->status, [
+                OrderStatus::PENDING,
+                OrderStatus::PREPARING,
+                OrderStatus::DELIVERED,
+            ], true)) {
+                throw ValidationException::withMessages([
+                    'order' => ['La mesa no está disponible para recibir una nueva adición.'],
+                ]);
+            }
+
+            return;
+        }
+
+        if (! in_array($order->status, [OrderStatus::PENDING, OrderStatus::PREPARING], true)) {
+            throw ValidationException::withMessages([
+                'order' => ['Este pedido ya fue entregado y no admite nuevas adiciones.'],
+            ]);
+        }
+    }
+
     public function show(Order $order): View {$order->load(['tableSession.restaurantTable','orderItems.product','statusHistories.changedBy','handledBy','deliveredBy','paidBy']);return view('admin.orders.show',['order'=>$order,'statuses'=>OrderStatus::operationalCases()]);}
     public function updateStatus(Request $request,Order $order): RedirectResponse {$v=$request->validate(['status'=>['required',Rule::enum(OrderStatus::class)]]);$new=OrderStatus::from($v['status']);if($order->status!==OrderStatus::PENDING||$new!==OrderStatus::PREPARING)throw ValidationException::withMessages(['status'=>['El cambio a EN PREPARACIÓN se realiza al imprimir las comandas del pedido.']]);DB::transaction(function()use($order,$new){$prev=$order->status;$order->update(['status'=>$new]);$order->statusHistories()->create(['previous_status'=>$prev->value,'new_status'=>$new->value,'changed_by_user_id'=>Auth::id(),'changed_at'=>now()]);});return redirect()->route('admin.orders.show',$order)->with('success','Estado del pedido actualizado exitosamente.');}
     public function deliver(Order $order): RedirectResponse {if($order->status!==OrderStatus::PREPARING)throw ValidationException::withMessages(['status'=>['El pedido debe estar EN PREPARACIÓN para poder entregarse.']]);$prev=$order->status;DB::transaction(function()use($order,$prev){$order->update(['status'=>OrderStatus::DELIVERED,'delivered_by_user_id'=>Auth::id(),'delivered_at'=>now()]);$order->statusHistories()->create(['previous_status'=>$prev->value,'new_status'=>OrderStatus::DELIVERED->value,'changed_by_user_id'=>Auth::id(),'changed_at'=>now()]);});$route=Auth::user()?->role?->value==='MESERO'?'waiter.orders':'admin.orders.show';return redirect()->route($route,$route==='admin.orders.show'?$order:[])->with('success','Pedido entregado exitosamente.');}
