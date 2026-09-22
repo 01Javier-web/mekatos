@@ -12,7 +12,7 @@ class CategoryController extends Controller
 {
     public function index(): View
     {
-        return view('admin.settings.categories.index', [
+        return view('admin.categories.index', [
             'categories' => Category::query()->orderBy('sort_order')->orderBy('name')->get(),
         ]);
     }
@@ -30,7 +30,7 @@ class CategoryController extends Controller
 
         return redirect()->route('admin.categories.index')->with(
             'success',
-            $category->is_active ? 'Categoría habilitada.' : 'Categoría deshabilitada.
+            $category->is_active ? 'Categoría habilitada.' : 'Categoría deshabilitada.'
         );
     }
 
