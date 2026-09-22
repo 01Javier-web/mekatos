@@ -7,6 +7,7 @@ use App\Enums\OrderType;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\RestaurantTable;
 use App\Models\TableSession;
@@ -240,7 +241,9 @@ class OrderController extends Controller
                     $notes = trim(implode(' · ', array_filter([$comboNote, $notes])));
                 }
 
-                $round->orderItems()->create([
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'order_round_id' => $round->id,
                     'product_id' => $p->id,
                     'quantity' => $quantity,
                     'unit_price' => $price,
