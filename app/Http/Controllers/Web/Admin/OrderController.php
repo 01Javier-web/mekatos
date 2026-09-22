@@ -277,8 +277,10 @@ class OrderController extends Controller
             ]);
         });
 
+        $route = Auth::user()?->role?->value === 'MESERO' ? 'waiter.orders' : 'admin.orders.show';
+
         return redirect()
-            ->route('waiter.orders')
+            ->route($route, $route === 'admin.orders.show' ? $order : [])
             ->with('success', "Adición agregada al pedido #{$order->id}. Quedó pendiente de impresión.");
     }
 
