@@ -10,7 +10,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalamos las dependencias exactas definidas en package-lock.json.
-RUN npm ci
+RUN npm install
 
 # Copiamos el proyecto completo porque Vite puede necesitar
 # resources/, vite.config.js/ts, etc.
