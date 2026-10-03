@@ -16,6 +16,7 @@ class OrderItem extends Model
         'total',
         'notes',
         'sent_at',
+        'paired_order_item_id',
     ];
 
     public function order(): BelongsTo
@@ -26,6 +27,16 @@ class OrderItem extends Model
     public function round(): BelongsTo
     {
         return $this->belongsTo(OrderRound::class, 'order_round_id');
+    }
+
+    public function pairedOrderItem(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'paired_order_item_id');
+    }
+
+    public function pairedPortions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(self::class, 'paired_order_item_id');
     }
 
     public function product(): BelongsTo
