@@ -42,6 +42,8 @@ class OrderController extends Controller
             'delivery_fee'=>['nullable','regex:/^\\d+$/','max:9999999999'],
             'items'=>['required','array'],
             'items.*'=>['nullable','integer','min:0','max:99'],
+            'portion_pairing'=>['nullable','array'],
+            'portion_pairing.*'=>['nullable','integer','exists:products,id'],
             'item_notes'=>['nullable','array'],
             'item_notes.*'=>['nullable','string','max:500'],
             'juice_preparation'=>['nullable','array'],
@@ -88,6 +90,7 @@ class OrderController extends Controller
                         $round=$order->rounds()->create(['number'=>1,'created_by_user_id'=>Auth::id()]);
             $subtotal=0;
             $packagingFee=0;
+            $createdItems=[];
 
             foreach($v['items'] as $productId=>$quantity){
                 $p=Product::query()->with(['category','beverageOptions'])->findOrFail($productId);
@@ -119,10 +122,11 @@ class OrderController extends Controller
 
                 $line=$price*$quantity;
                 $packagingFee+=TakeawayPackaging::fee($p,$quantity,$type->value);
-                OrderItem::create(['order_id'=>$order->id,'order_round_id'=>$round->id,'product_id'=>$p->id,'quantity'=>$quantity,'unit_price'=>$price,'total'=>$line,'notes'=>$notes,'sent_at'=>null]);
+                $createdItems[$p->id]=OrderItem::create(['order_id'=>$order->id,'order_round_id'=>$round->id,'product_id'=>$p->id,'quantity'=>$quantity,'unit_price'=>$price,'total'=>$line,'notes'=>$notes,'sent_at'=>null]);
                 $subtotal+=$line;
             }
 
+            $this->applyPortionPairings($order, $v['portion_pairing'] ?? [], $createdItems);
             $order->update(['subtotal'=>$subtotal,'packaging_fee'=>$packagingFee,'tax'=>0,'total'=>$subtotal+$packagingFee]);
             $order->statusHistories()->create(['previous_status'=>null,'new_status'=>OrderStatus::PENDING->value,'changed_by_user_id'=>Auth::id(),'changed_at'=>now()]);
             return $order;
@@ -161,6 +165,8 @@ class OrderController extends Controller
         $v = $request->validate([
             'items' => ['required', 'array'],
             'items.*' => ['nullable', 'integer', 'min:0', 'max:99'],
+            'portion_pairing' => ['nullable', 'array'],
+            'portion_pairing.*' => ['nullable', 'integer', 'exists:products,id'],
             'item_notes' => ['nullable', 'array'],
             'item_notes.*' => ['nullable', 'string', 'max:500'],
             'juice_preparation' => ['nullable', 'array'],
@@ -193,6 +199,8 @@ class OrderController extends Controller
                 'number' => $nextRound,
                 'created_by_user_id' => Auth::id(),
             ]);
+
+            $createdItems = [];
 
             foreach ($v['items'] as $productId => $quantity) {
                 $p = Product::query()->with(['category', 'beverageOptions'])->findOrFail($productId);
@@ -241,7 +249,7 @@ class OrderController extends Controller
                     $notes = trim(implode(' · ', array_filter([$comboNote, $notes])));
                 }
 
-                OrderItem::create([
+                $createdItems[$p->id] = OrderItem::create([
                     'order_id' => $order->id,
                     'order_round_id' => $round->id,
                     'product_id' => $p->id,
@@ -252,6 +260,8 @@ class OrderController extends Controller
                     'sent_at' => null,
                 ]);
             }
+
+            $this->applyPortionPairings($order, $v['portion_pairing'] ?? [], $createdItems);
 
             $order->load('orderItems.product');
             $subtotal = $order->orderItems->sum('total');
@@ -285,6 +295,56 @@ class OrderController extends Controller
         return redirect()
             ->route($route, $route === 'admin.orders.show' ? $order : [])
             ->with('success', "Adición agregada al pedido #{$order->id}. Quedó pendiente de impresión.");
+    }
+
+    private function applyPortionPairings(Order $order, array $pairings, array $createdItems): void
+    {
+        foreach ($pairings as $portionProductId => $targetProductId) {
+            $portionProductId = (int) $portionProductId;
+            $targetProductId = (int) $targetProductId;
+
+            if ($portionProductId === 0 || $targetProductId === 0 || $portionProductId === $targetProductId) {
+                continue;
+            }
+
+            $portionItem = $createdItems[$portionProductId] ?? null;
+
+            if (! $portionItem) {
+                throw ValidationException::withMessages([
+                    'portion_pairing' => ['La porción seleccionada no pertenece a los productos de este pedido.'],
+                ]);
+            }
+
+            $portionItem->loadMissing('product');
+
+            if (! $portionItem->product?->is_portion) {
+                throw ValidationException::withMessages([
+                    'portion_pairing' => ['Solo los productos marcados como porción pueden tener un acompañamiento.'],
+                ]);
+            }
+
+            $targetItem = OrderItem::query()
+                ->where('order_id', $order->id)
+                ->where('product_id', $targetProductId)
+                ->latest('id')
+                ->first();
+
+            if (! $targetItem) {
+                throw ValidationException::withMessages([
+                    'portion_pairing' => ['El producto seleccionado para acompañar no pertenece al pedido.'],
+                ]);
+            }
+
+            $targetItem->loadMissing('product');
+
+            if ($targetItem->product?->is_portion) {
+                throw ValidationException::withMessages([
+                    'portion_pairing' => ['Una porción no puede acompañar a otra porción.'],
+                ]);
+            }
+
+            $portionItem->update(['paired_order_item_id' => $targetItem->id]);
+        }
     }
 
     private function ensureAdditionAllowed(Order $order): void
