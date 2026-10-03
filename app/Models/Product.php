@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
+    protected $casts = [
+        'is_available' => 'boolean',
+        'is_portion' => 'boolean',
+    ];
+
     protected $fillable = [
         'category_id',
         'name',
@@ -15,6 +20,7 @@ class Product extends Model
         'price',
         'image_path',
         'is_available',
+        'is_portion',
     ];
 
     public function category(): BelongsTo
