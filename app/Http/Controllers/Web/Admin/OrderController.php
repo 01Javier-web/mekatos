@@ -140,7 +140,7 @@ class OrderController extends Controller
         $this->ensureAdditionAllowed($order);
 
         return view('admin.orders.add-v2', [
-            'order' => $order->load(['tableSession.restaurantTable']),
+            'order' => $order->load(['tableSession.restaurantTable', 'orderItems.product.category']),
             'products' => Product::query()
                 ->with(['category', 'beverageOptions'])
                 ->where('is_available', true)
