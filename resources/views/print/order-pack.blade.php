@@ -18,8 +18,26 @@
                 <div class="location">{{ in_array($order->type?->value, ['PARA_LLEVAR','DOMICILIO'], true) ? ($order->type?->value === 'DOMICILIO' ? 'DOMICILIO' : 'PARA LLEVAR') : 'MESA '.($order->tableSession?->restaurantTable?->number ?? '—') }}</div>
                 <div class="meta"><div><strong>Hora:</strong> {{ $order->created_at?->format('H:i') }}</div><div><strong>Responsable:</strong> {{ $order->handledBy?->name ?? 'Pedido QR' }}</div></div>
                 @foreach($kitchenItems as $item)
-                    <div class="line"><span class="line-name">{{ $item->quantity }} × {{ $item->product?->name ?? 'Producto' }}</span></div>
-                    @if($item->notes)<div class="line-note">Detalle: {{ $item->notes }}</div>@endif
+                    @php
+                        $parentIsPrinted = $item->paired_order_item_id && $kitchenItems->contains('id', $item->paired_order_item_id);
+                    @endphp
+                    @if(! $parentIsPrinted)
+                        <div class="line">
+                            <span class="line-name">{{ $item->quantity }} × {{ $item->product?->name ?? 'Producto' }}</span>
+                        </div>
+                        @if($item->notes)<div class="line-note">Detalle: {{ $item->notes }}</div>@endif
+
+                        @foreach($kitchenItems->where('paired_order_item_id', $item->id) as $portion)
+                            <div class="line" style="padding-left:10px;font-size:12px;">
+                                <span class="line-name">↳ {{ $portion->quantity }} × {{ $portion->product?->name ?? 'Porción' }}</span>
+                            </div>
+                            <div class="line-note">Acompaña a: {{ $item->product?->name ?? 'Producto' }}@if($portion->notes) · {{ $portion->notes }}@endif</div>
+                        @endforeach
+
+                        @if($item->paired_order_item_id && ! $parentIsPrinted)
+                            <div class="line-note">Acompaña a: {{ $item->pairedOrderItem?->product?->name ?? 'Producto' }}</div>
+                        @endif
+                    @endif
                 @endforeach
                 @if($order->notes)<div class="general-note"><strong>Nota general</strong>{{ $order->notes }}</div>@endif
             </section>
