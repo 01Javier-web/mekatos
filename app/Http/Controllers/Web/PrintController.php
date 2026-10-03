@@ -27,6 +27,7 @@ class PrintController extends Controller
         $order->load([
             'tableSession.restaurantTable',
             'orderItems.product.category',
+            'orderItems.pairedOrderItem.product',
             'handledBy',
         ]);
 
@@ -72,7 +73,7 @@ class PrintController extends Controller
 
         $printItems = $isAddition ? $unsentItems : $order->orderItems->values();
 
-        $freshOrder = $order->fresh(['tableSession.restaurantTable', 'handledBy', 'orderItems.product.category', 'rounds.createdBy']);
+        $freshOrder = $order->fresh(['tableSession.restaurantTable', 'handledBy', 'orderItems.product.category', 'orderItems.pairedOrderItem.product', 'rounds.createdBy']);
         $latestRound = $freshOrder->rounds->sortByDesc('number')->first();
         $roundNumber = (int) ($latestRound?->number ?? 1);
         $roundCreatedBy = $latestRound?->createdBy?->name;
