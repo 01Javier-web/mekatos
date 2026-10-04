@@ -13,7 +13,7 @@
         <div class="stat-card"><span>Pedidos activos</span><strong>{{ $counts['total'] }}</strong><small>En seguimiento</small></div>
         <div class="stat-card stat-attention"><span>Pendientes</span><strong>{{ $counts['pending'] }}</strong><small>Esperando impresión</small></div>
         <div class="stat-card"><span>En preparación</span><strong>{{ $counts['preparing'] }}</strong><small>En cocina</small></div>
-        <div class="stat-card stat-ready"><span>Entregados</span><strong>{{ $counts['delivered'] }}</strong><small>Pendientes de cobro</small></div>
+        <div class="stat-card stat-ready"><span>Listos</span><strong>{{ $counts['delivered'] }}</strong><small>Listos para recoger o entregar</small></div>
     </section>
 
     <section class="waiter-toolbar panel" aria-label="Filtros de pedidos">
@@ -34,13 +34,19 @@
                     @if ($status === \App\Enums\OrderStatus::PENDING)
                         <span class="muted action-message">Esperando impresión en caja.</span>
                     @elseif ($status === \App\Enums\OrderStatus::PREPARING)
-                        <form method="POST" action="{{ route('admin.orders.deliver', $order) }}">@csrf @method('PUT')<button class="button button-primary" type="submit">Marcar entregado</button></form>
-                    @elseif ($status === \App\Enums\OrderStatus::DELIVERED)
-                        @if($isTakeaway || $isDelivery)
-                            <form method="POST" action="{{ route('admin.orders.pay', $order) }}" onsubmit="return confirm('¿Confirmas que el pedido fue pagado?');">@csrf<button class="button button-primary" type="submit">💰 Registrar pago</button></form>
-                        @elseif($order->tableSession)
+                        @if($isTable && $order->tableSession)
                             <a class="button button-primary" href="{{ route('admin.accounts.show',$order->tableSession) }}">💰 Ver / cobrar cuenta</a>
+                        @else
+                            <form method="POST" action="{{ route('admin.orders.deliver', $order) }}">@csrf @method('PUT')<button class="button button-primary" type="submit">✓ Marcar como listo</button></form>
                         @endif
+                    @elseif ($status === \App\Enums\OrderStatus::DELIVERED)
+                        @if($isDelivery)
+                            <form method="POST" action="{{ route('admin.orders.dispatch', $order) }}">@csrf @method('PUT')<button class="button button-primary" type="submit">🛵 Marcar en camino</button></form>
+                        @elseif($isTakeaway)
+                            <form method="POST" action="{{ route('admin.orders.pay', $order) }}" onsubmit="return confirm('¿Confirmas que el pedido fue pagado?');">@csrf<button class="button button-primary" type="submit">💰 Registrar pago</button></form>
+                        @endif
+                    @elseif ($status === \App\Enums\OrderStatus::IN_TRANSIT)
+                        <form method="POST" action="{{ route('admin.orders.pay', $order) }}" onsubmit="return confirm('¿Confirmas que el domicilio fue entregado y pagado?');">@csrf<button class="button button-primary" type="submit">💰 Confirmar entrega y pago</button></form>
                     @endif
                 </div>
             </article>
