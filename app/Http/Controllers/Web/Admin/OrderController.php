@@ -386,5 +386,69 @@ class OrderController extends Controller
 
     public function show(Order $order): View {$order->load(['tableSession.restaurantTable','orderItems.product','statusHistories.changedBy','handledBy','deliveredBy','paidBy']);return view('admin.orders.show',['order'=>$order,'statuses'=>OrderStatus::operationalCases()]);}
     public function updateStatus(Request $request,Order $order): RedirectResponse {$v=$request->validate(['status'=>['required',Rule::enum(OrderStatus::class)]]);$new=OrderStatus::from($v['status']);if($order->status!==OrderStatus::PENDING||$new!==OrderStatus::PREPARING)throw ValidationException::withMessages(['status'=>['El cambio a EN PREPARACIÓN se realiza al imprimir las comandas del pedido.']]);DB::transaction(function()use($order,$new){$prev=$order->status;$order->update(['status'=>$new]);$order->statusHistories()->create(['previous_status'=>$prev->value,'new_status'=>$new->value,'changed_by_user_id'=>Auth::id(),'changed_at'=>now()]);});return redirect()->route('admin.orders.show',$order)->with('success','Estado del pedido actualizado exitosamente.');}
-    public function deliver(Order $order): RedirectResponse {if($order->status!==OrderStatus::PREPARING)throw ValidationException::withMessages(['status'=>['El pedido debe estar EN PREPARACIÓN para poder entregarse.']]);$prev=$order->status;DB::transaction(function()use($order,$prev){$order->update(['status'=>OrderStatus::DELIVERED,'delivered_by_user_id'=>Auth::id(),'delivered_at'=>now()]);$order->statusHistories()->create(['previous_status'=>$prev->value,'new_status'=>OrderStatus::DELIVERED->value,'changed_by_user_id'=>Auth::id(),'changed_at'=>now()]);});$route=Auth::user()?->role?->value==='MESERO'?'waiter.orders':'admin.orders.show';return redirect()->route($route,$route==='admin.orders.show'?$order:[])->with('success','Pedido entregado exitosamente.');}
+    public function deliver(Order $order): RedirectResponse
+    {
+        if ($order->type === OrderType::TABLE) {
+            throw ValidationException::withMessages([
+                'status' => ['Los pedidos en mesa no se marcan manualmente como entregados. La mesa permanece abierta hasta cobrar la cuenta.'],
+            ]);
+        }
+
+        if ($order->status !== OrderStatus::PREPARING) {
+            throw ValidationException::withMessages([
+                'status' => ['El pedido debe estar EN PREPARACIÓN para poder marcarlo como listo.'],
+            ]);
+        }
+
+        $prev = $order->status;
+        DB::transaction(function () use ($order, $prev): void {
+            $order->update(['status' => OrderStatus::DELIVERED]);
+            $order->statusHistories()->create([
+                'previous_status' => $prev->value,
+                'new_status' => OrderStatus::DELIVERED->value,
+                'changed_by_user_id' => Auth::id(),
+                'changed_at' => now(),
+                'notes' => 'Pedido listo para entrega o recogida.',
+            ]);
+        });
+
+        $route = Auth::user()?->role?->value === 'MESERO' ? 'waiter.orders' : 'admin.orders.show';
+
+        return redirect()
+            ->route($route, $route === 'admin.orders.show' ? $order : [])
+            ->with('success', 'Pedido marcado como listo.');
+    }
+
+    public function dispatch(Order $order): RedirectResponse
+    {
+        if ($order->type !== OrderType::DELIVERY) {
+            throw ValidationException::withMessages([
+                'status' => ['Solo los domicilios pueden pasar a EN CAMINO.'],
+            ]);
+        }
+
+        if ($order->status !== OrderStatus::DELIVERED) {
+            throw ValidationException::withMessages([
+                'status' => ['El domicilio debe estar LISTO antes de salir en camino.'],
+            ]);
+        }
+
+        $prev = $order->status;
+        DB::transaction(function () use ($order, $prev): void {
+            $order->update(['status' => OrderStatus::IN_TRANSIT]);
+            $order->statusHistories()->create([
+                'previous_status' => $prev->value,
+                'new_status' => OrderStatus::IN_TRANSIT->value,
+                'changed_by_user_id' => Auth::id(),
+                'changed_at' => now(),
+                'notes' => 'Domicilio salió en camino.',
+            ]);
+        });
+
+        $route = Auth::user()?->role?->value === 'MESERO' ? 'waiter.orders' : 'admin.orders.show';
+
+        return redirect()
+            ->route($route, $route === 'admin.orders.show' ? $order : [])
+            ->with('success', 'Domicilio marcado EN CAMINO.');
+    }
 }
