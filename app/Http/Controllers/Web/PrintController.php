@@ -201,18 +201,18 @@ class PrintController extends Controller
                 ]);
             }
 
-            $notDelivered = $orders->filter(
-                fn (Order $order): bool => $order->status !== OrderStatus::DELIVERED
+            $notReady = $orders->filter(
+                fn (Order $order): bool => ! in_array($order->status, [OrderStatus::PREPARING, OrderStatus::DELIVERED], true)
             );
 
-            if ($notDelivered->isNotEmpty()) {
-                $blocked = $notDelivered->map(function (Order $order): string {
+            if ($notReady->isNotEmpty()) {
+                $blocked = $notReady->map(function (Order $order): string {
                     return '#'.$order->id.' ('.$order->status?->value.')';
                 })->implode(', ');
 
                 throw ValidationException::withMessages([
                     'status' => [
-                        "No se puede cerrar la cuenta. Los siguientes pedidos todavía no están ENTREGADOS: {$blocked}.",
+                        "No se puede cerrar la cuenta. Los siguientes pedidos todavía no han sido enviados a cocina: {$blocked}.",
                     ],
                 ]);
             }
@@ -225,7 +225,7 @@ class PrintController extends Controller
                 ]);
 
                 $order->statusHistories()->create([
-                    'previous_status' => OrderStatus::DELIVERED->value,
+                    'previous_status' => $order->status->value,
                     'new_status' => OrderStatus::COMPLETED->value,
                     'changed_by_user_id' => Auth::id(),
                     'changed_at' => now(),
@@ -259,9 +259,13 @@ class PrintController extends Controller
             ]);
         }
 
-        if ($order->status !== OrderStatus::DELIVERED) {
+        $allowedStatuses = $order->type?->value === 'DOMICILIO'
+            ? [OrderStatus::IN_TRANSIT]
+            : [OrderStatus::DELIVERED];
+
+        if (! in_array($order->status, $allowedStatuses, true)) {
             throw ValidationException::withMessages([
-                'status' => ['El pedido debe estar ENTREGADO antes de registrar el pago.'],
+                'status' => ['El pedido todavía no está listo para cerrar y registrar el pago.'],
             ]);
         }
 
@@ -273,7 +277,7 @@ class PrintController extends Controller
             ]);
 
             $order->statusHistories()->create([
-                'previous_status' => OrderStatus::DELIVERED->value,
+                'previous_status' => $order->status->value,
                 'new_status' => OrderStatus::COMPLETED->value,
                 'changed_by_user_id' => Auth::id(),
                 'changed_at' => now(),
