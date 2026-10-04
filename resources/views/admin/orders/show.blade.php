@@ -33,6 +33,9 @@
             @if($order->orderItems->contains(fn ($item) => $item->sent_at === null))
                 <a class="button button-print-pending" target="_blank" rel="noopener" href="{{ route('admin.orders.print',$order) }}">🖨️ {{ $order->status === \App\Enums\OrderStatus::PENDING ? 'Imprimir comandas' : 'Imprimir adición' }}</a>
             @endif
+            @if($order->orderItems->contains(fn ($item) => $item->sent_at !== null))
+                <a class="button" target="_blank" rel="noopener" href="{{ route('admin.orders.reprint',$order) }}">🔁 Reimprimir última comanda</a>
+            @endif
             @if($order->status !== \App\Enums\OrderStatus::COMPLETED && (($order->type?->value === 'MESA' && $order->tableSession) || in_array($order->status,[\App\Enums\OrderStatus::PENDING,\App\Enums\OrderStatus::PREPARING],true)))
                 <a class="button" href="{{ route('admin.orders.add',$order) }}">＋ Agregar al pedido</a>
             @endif

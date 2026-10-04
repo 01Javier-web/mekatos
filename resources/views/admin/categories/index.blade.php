@@ -10,7 +10,7 @@
         <div class="table-wrap"><table class="data-table"><thead><tr><th>Orden</th><th>Nombre</th><th>Descripción</th><th>Disponibilidad</th></tr></thead><tbody id="category-rows">
             @forelse ($categories as $category)
                 <tr data-search="{{ strtolower($category->name.' '.($category->description??'')) }}" data-status="{{ $category->is_active?'active':'inactive' }}"><td><strong>{{ $category->sort_order }}</strong></td><td><strong>{{ $category->name }}</strong></td><td>{{ $category->description ?: 'Sin descripción' }}</td><td><form method="POST" action="{{ route('admin.categories.availability',$category) }}" class="availability-form">@csrf @method('PUT')<button type="submit" class="availability-toggle {{ $category->is_active ? 'is-available' : 'is-unavailable' }}">{{ $category->is_active ? '● Habilitada' : '○ Deshabilitada' }}</button></form></td></tr>
-            @empty<tr><td colspan="4" class="empty-state"><h3>No hay categorías</h3><p>Las categorías se crean y administran desde Configuración.</p><a class="button button-primary" href="{{ route('admin.categories.create') }}">Nueva categoría</a></td></tr>@endforelse
+            @empty<tr><td colspan="4" class="empty-state"><h3>No hay categorías</h3><p>Las categorías se crean y administran desde Configuración.</p><a class="button button-primary" href="{{ route('admin.settings.categories.create') }}">Nueva categoría</a></td></tr>@endforelse
         </tbody></table></div>
         <div id="categories-empty" class="empty-state" hidden><h3>Sin resultados</h3><p>No encontramos categorías con esos filtros.</p></div>
     </section>

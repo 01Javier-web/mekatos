@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Database\QueryException;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\JsonResponse;
@@ -64,7 +65,16 @@ class AdminCategoryController extends Controller
 
     public function destroy(Category $category): JsonResponse
     {
-        $category->delete();
+        try {
+            $category->delete();
+        } catch (QueryException $e) {
+            // 23000: restricción de integridad (el registro está en uso por otros datos).
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+
+            return response()->json(['message' => 'No se puede eliminar: la categoría tiene productos asociados.'], 409);
+        }
 
         return response()->json([
             'message' => 'Categoría eliminada exitosamente',

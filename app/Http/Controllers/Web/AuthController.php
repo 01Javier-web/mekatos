@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Support\LoginAttempts;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,13 +29,16 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $credentials['is_active'] = true;
+        // Incluye el bloqueo tras 3 intentos fallidos (ver App\Support\LoginAttempts).
+        $user = LoginAttempts::attempt($credentials['email'], $credentials['password']);
 
-        if (!Auth::attempt($credentials)) {
+        if (! $user) {
             return back()
-                ->withErrors(['email' => 'El correo o la contraseña son incorrectos.'])
+                ->withErrors(['email' => LoginAttempts::GENERIC_ERROR])
                 ->withInput($request->only('email'));
         }
+
+        Auth::login($user);
 
         $request->session()->regenerate();
 

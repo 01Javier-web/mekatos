@@ -30,7 +30,7 @@ class OrderNotesTest extends TestCase
 
         $response = $this->actingAs($user)->postJson('/api/orders', [
             'type' => OrderType::TABLE->value,
-            'table_session_id' => $session->id,
+            'table_session_id' => $session->id, 'table_token' => $session->restaurantTable->qr_token,
             'notes' => 'Nota general del pedido',
             'items' => [[
                 'product_id' => $product->id,

@@ -36,7 +36,7 @@ class OrderApiTest extends TestCase
         $product = $this->product();
         $table = RestaurantTable::create(['number' => 3, 'name' => 'Mesa 3', 'capacity' => 4, 'qr_token' => 'order-test-3', 'status' => TableStatus::OCCUPIED]);
         $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
-        $response = $this->postJson('/api/orders', ['type' => OrderType::TABLE->value, 'table_session_id' => $session->id, 'items' => [['product_id' => $product->id, 'quantity' => 2, 'notes' => 'Sin cebolla, extra queso']]]);
+        $response = $this->postJson('/api/orders', ['type' => OrderType::TABLE->value, 'table_session_id' => $session->id, 'table_token' => $session->restaurantTable->qr_token, 'items' => [['product_id' => $product->id, 'quantity' => 2, 'notes' => 'Sin cebolla, extra queso']]]);
         $response->assertCreated()->assertJsonPath('order.type', OrderType::TABLE->value)->assertJsonPath('order.status', OrderStatus::PENDING->value)->assertJsonPath('order.total', '36000.00')->assertJsonPath('order.order_items.0.notes', 'Sin cebolla, extra queso');
         $this->assertDatabaseHas('order_items', ['order_id' => $response->json('order.id'), 'product_id' => $product->id, 'notes' => 'Sin cebolla, extra queso']);
     }
@@ -59,7 +59,7 @@ class OrderApiTest extends TestCase
         $product = $this->product(); $product->update(['is_available' => false]);
         $table = RestaurantTable::create(['number' => 4, 'capacity' => 4, 'qr_token' => 'order-test-4', 'status' => TableStatus::OCCUPIED]);
         $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
-        $this->postJson('/api/orders', ['type' => OrderType::TABLE->value, 'table_session_id' => $session->id, 'items' => [['product_id' => $product->id, 'quantity' => 1]]])->assertUnprocessable();
+        $this->postJson('/api/orders', ['type' => OrderType::TABLE->value, 'table_session_id' => $session->id, 'table_token' => $session->restaurantTable->qr_token, 'items' => [['product_id' => $product->id, 'quantity' => 1]]])->assertUnprocessable();
     }
 
     public function test_preparing_order_can_be_delivered_by_waiter(): void

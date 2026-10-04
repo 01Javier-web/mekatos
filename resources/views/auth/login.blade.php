@@ -44,6 +44,7 @@
                 <h1 id="login-title">Bienvenido</h1>
                 <p class="login-subtitle">Accede para gestionar pedidos, mesas y el menú de Mekatos.</p>
             </div>
+            @if (session('success'))<div class="alert alert-success" role="status">{{ session('success') }}</div>@endif
             @if ($errors->any())<div class="alert alert-error" role="alert"><strong>No pudimos iniciar sesión.</strong><ul class="error-list">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
             <form method="POST" action="{{ route('login.store') }}" class="login-form" id="login-form">
                 @csrf

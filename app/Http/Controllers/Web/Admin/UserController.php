@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\LoginAttempts;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,6 +32,21 @@ class UserController extends Controller
         $user->update($data);
         return redirect()->route('admin.users.index')->with('success','Usuario actualizado exitosamente.');
     }
+    /**
+     * Desbloquea un usuario bloqueado por intentos fallidos (solo ADMIN, por la ruta).
+     * No modifica is_active ni la contraseña.
+     */
+    public function unlock(User $user): RedirectResponse
+    {
+        if (! $user->isLocked()) {
+            return redirect()->route('admin.users.index')->with('success', "{$user->name} no estaba bloqueado.");
+        }
+
+        LoginAttempts::unlock($user);
+
+        return redirect()->route('admin.users.index')->with('success', "{$user->name} fue desbloqueado. Ya puede iniciar sesión.");
+    }
+
     public function destroy(Request $request, User $user): RedirectResponse
     {
         if ($user->id === $request->user()->id) return back()->withErrors(['user'=>'No puedes eliminar tu propio usuario.']);

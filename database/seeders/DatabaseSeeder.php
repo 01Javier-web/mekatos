@@ -8,6 +8,7 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -24,10 +25,15 @@ class DatabaseSeeder extends Seeder
         DB::table('order_status_histories')->whereIn('changed_by_user_id', $oldUserIds)->update(['changed_by_user_id' => null]);
         User::whereIn('id', $oldUserIds)->delete();
 
-        $this->seedUser(['email'=>'admin1@mekatos.test','name'=>'Administrador 1','password'=>'12345678','role'=>UserRole::Admin]);
-        $this->seedUser(['email'=>'admin2@mekatos.test','name'=>'Administrador 2','password'=>'12345678','role'=>UserRole::Admin]);
-        $this->seedUser(['email'=>'mesero1@mekatos.test','name'=>'Mesero 1','password'=>'12345678','role'=>UserRole::Waiter]);
-        $this->seedUser(['email'=>'mesero2@mekatos.test','name'=>'Mesero 2','password'=>'12345678','role'=>UserRole::Waiter]);
+        // Las cuentas ADMIN no se crean desde el seeder ni con contraseñas fijas.
+        // Para crear un administrador: php artisan mekatos:crear-admin
+
+        // Meseros de prueba: solo en desarrollo local y con contraseña aleatoria
+        // que se muestra en la consola al ejecutar el seeder.
+        if (app()->environment('local')) {
+            $this->seedUser(['email'=>'mesero1@mekatos.test','name'=>'Mesero 1','role'=>UserRole::Waiter]);
+            $this->seedUser(['email'=>'mesero2@mekatos.test','name'=>'Mesero 2','role'=>UserRole::Waiter]);
+        }
 
         $this->call(MekatosMenuSeeder::class);
         $this->call(RestaurantTableSeeder::class);
@@ -35,6 +41,10 @@ class DatabaseSeeder extends Seeder
 
     private function seedUser(array $data): void
     {
-        User::updateOrCreate(['email'=>$data['email']], ['name'=>$data['name'],'password'=>Hash::make($data['password']),'role'=>$data['role'],'is_active'=>true]);
+        $password = Str::password(16, symbols: false);
+
+        User::updateOrCreate(['email'=>$data['email']], ['name'=>$data['name'],'password'=>Hash::make($password),'role'=>$data['role'],'is_active'=>true]);
+
+        $this->command?->info("Usuario de prueba (solo local): {$data['email']} / {$password}");
     }
 }

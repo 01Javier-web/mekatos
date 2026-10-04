@@ -89,7 +89,7 @@ class ComboOptionsTest extends TestCase
         $session = $this->tableSession();
 
         $response = $this->postJson('/api/orders', [
-            'table_session_id' => $session->id,
+            'table_session_id' => $session->id, 'table_token' => $session->restaurantTable->qr_token,
             'items' => [[
                 'product_id' => $hamburger->id,
                 'quantity' => 1,
@@ -116,7 +116,7 @@ class ComboOptionsTest extends TestCase
         $session = $this->tableSession();
 
         $response = $this->postJson('/api/orders', [
-            'table_session_id' => $session->id,
+            'table_session_id' => $session->id, 'table_token' => $session->restaurantTable->qr_token,
             'items' => [[
                 'product_id' => $hamburger->id,
                 'quantity' => 1,

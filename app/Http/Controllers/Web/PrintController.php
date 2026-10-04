@@ -60,7 +60,10 @@ class PrintController extends Controller
                     : 'Nueva adición impresa.',
             ]);
 
-            $unsentItems->each(fn ($item) => $item->update(['sent_at' => now()]));
+            // Todos los productos de una misma impresión comparten la misma marca de
+            // tiempo; así la reimpresión puede identificar exactamente ese envío.
+            $sentAt = now();
+            $unsentItems->each(fn ($item) => $item->update(['sent_at' => $sentAt]));
         });
 
         $beverageItems = $unsentItems
@@ -86,6 +89,60 @@ class PrintController extends Controller
             'isAddition' => $isAddition,
             'roundNumber' => $roundNumber,
             'roundCreatedBy' => $roundCreatedBy,
+        ]);
+    }
+
+    /**
+     * Reimprime la última comanda ya enviada (por ejemplo, si falló la impresora).
+     * Es de solo lectura: no cambia sent_at, el estado, las rondas ni el historial.
+     */
+    public function reprintOrder(Order $order): View
+    {
+        $order->load([
+            'tableSession.restaurantTable',
+            'orderItems.product.category',
+            'orderItems.pairedOrderItem.product',
+            'handledBy',
+            'rounds.createdBy',
+        ]);
+
+        $sentItems = $order->orderItems
+            ->filter(fn ($item): bool => $item->sent_at !== null)
+            ->values();
+
+        if ($sentItems->isEmpty()) {
+            throw ValidationException::withMessages([
+                'status' => ['Este pedido todavía no tiene comandas enviadas para reimprimir.'],
+            ]);
+        }
+
+        // sent_at se guarda como 'Y-m-d H:i:s' (sin cast en el modelo), por lo que
+        // la comparación de texto respeta el orden cronológico.
+        $lastSentAt = (string) $sentItems->max(fn ($item): string => (string) $item->sent_at);
+
+        $lastBatch = $sentItems
+            ->filter(fn ($item): bool => (string) $item->sent_at === $lastSentAt)
+            ->values();
+
+        $isAddition = $sentItems->contains(
+            fn ($item): bool => (string) $item->sent_at < $lastSentAt
+        );
+
+        $batchRoundIds = $lastBatch->pluck('order_round_id')->filter()->unique();
+        $latestRound = $order->rounds
+            ->whereIn('id', $batchRoundIds)
+            ->sortByDesc('number')
+            ->first() ?? $order->rounds->sortByDesc('number')->first();
+
+        return view('print.order-pack', [
+            'order' => $order,
+            'kitchenItems' => $lastBatch->reject(fn ($item): bool => $this->isBeverageItem($item))->values(),
+            'beverageItems' => $lastBatch->filter(fn ($item): bool => $this->isPreparedByBeverageStation($item))->values(),
+            'takeawayItems' => $isAddition ? $lastBatch : $sentItems,
+            'isAddition' => $isAddition,
+            'roundNumber' => (int) ($latestRound?->number ?? 1),
+            'roundCreatedBy' => $latestRound?->createdBy?->name,
+            'isReprint' => true,
         ]);
     }
 
@@ -218,6 +275,8 @@ class PrintController extends Controller
             }
 
             foreach ($orders as $order) {
+                $previousStatus = $order->status;
+
                 $order->update([
                     'status' => OrderStatus::COMPLETED,
                     'paid_at' => now(),
@@ -225,7 +284,7 @@ class PrintController extends Controller
                 ]);
 
                 $order->statusHistories()->create([
-                    'previous_status' => $order->status->value,
+                    'previous_status' => $previousStatus->value,
                     'new_status' => OrderStatus::COMPLETED->value,
                     'changed_by_user_id' => Auth::id(),
                     'changed_at' => now(),
@@ -270,6 +329,8 @@ class PrintController extends Controller
         }
 
         DB::transaction(function () use ($order): void {
+            $previousStatus = $order->status;
+
             $order->update([
                 'status' => OrderStatus::COMPLETED,
                 'paid_at' => now(),
@@ -277,7 +338,7 @@ class PrintController extends Controller
             ]);
 
             $order->statusHistories()->create([
-                'previous_status' => $order->status->value,
+                'previous_status' => $previousStatus->value,
                 'new_status' => OrderStatus::COMPLETED->value,
                 'changed_by_user_id' => Auth::id(),
                 'changed_at' => now(),

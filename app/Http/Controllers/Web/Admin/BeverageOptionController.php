@@ -14,7 +14,7 @@ class BeverageOptionController extends Controller
     public function index(Product $product): View|RedirectResponse
     {
         if (! BeverageOptions::hasOptions($product)) {
-            return redirect()->route('admin.products.edit', $product)
+            return redirect()->route('admin.settings.products.edit', $product)
                 ->with('error', 'Este producto no tiene opciones configurables.');
         }
 

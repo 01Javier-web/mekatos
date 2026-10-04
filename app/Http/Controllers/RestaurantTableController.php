@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Database\QueryException;
 use App\Models\RestaurantTable;
 use App\TableStatus;
 use Illuminate\Http\JsonResponse;
@@ -81,7 +82,16 @@ class RestaurantTableController extends Controller
 
     public function destroy(RestaurantTable $restaurantTable): JsonResponse
     {
-        $restaurantTable->delete();
+        try {
+            $restaurantTable->delete();
+        } catch (QueryException $e) {
+            // 23000: restricción de integridad (el registro está en uso por otros datos).
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+
+            return response()->json(['message' => 'No se puede eliminar: la mesa tiene pedidos o sesiones registradas.'], 409);
+        }
 
         return response()->json([
             'message' => 'Mesa eliminada exitosamente',

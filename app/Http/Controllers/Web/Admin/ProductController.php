@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Web\Admin;
 
+use Illuminate\Database\QueryException;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
@@ -95,7 +96,17 @@ class ProductController extends Controller
 
     public function destroy(Product $product): RedirectResponse
     {
-        $product->delete();
+        try {
+            $product->delete();
+        } catch (QueryException $e) {
+            // 23000: restricción de integridad (el registro está en uso por otros datos).
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+
+            return redirect()->route('admin.settings.products.index')
+                ->withErrors(['product' => "No se puede eliminar '{$product->name}' porque está registrado en pedidos. Puedes marcarlo como no disponible."]);
+        }
 
         return redirect()->route('admin.settings.products.index')->with('success', 'Producto eliminado exitosamente.');
     }

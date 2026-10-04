@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Database\QueryException;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\UserRole;
@@ -110,7 +111,16 @@ class AdminUserController extends Controller
     // Eliminar un usuario
     public function destroy(User $user): JsonResponse
     {
-        $user->delete();
+        try {
+            $user->delete();
+        } catch (QueryException $e) {
+            // 23000: restricción de integridad (el registro está en uso por otros datos).
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+
+            return response()->json(['message' => 'No se puede eliminar: el usuario tiene pedidos o historial registrados.'], 409);
+        }
 
         return response()->json([
             'message' => 'Usuario eliminado exitosamente',

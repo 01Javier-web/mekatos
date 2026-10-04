@@ -54,8 +54,11 @@ class OrderController extends Controller
         $tableSessionId = $validatedData['table_session_id'] ?? null;
         $tableToken = $validatedData['table_token'] ?? $validatedData['token'] ?? null;
 
-        if ($type === OrderType::TABLE && ! $tableSessionId && ! $tableToken) {
-            throw ValidationException::withMessages(['table_token' => ['Los pedidos en mesa requieren identificar la mesa.']]);
+        // El endpoint es público: la mesa solo se identifica con el token de su QR.
+        // Un table_session_id sin el token correcto no basta, porque los IDs son
+        // consecutivos y se podrían adivinar.
+        if ($type === OrderType::TABLE && ! $tableToken) {
+            throw ValidationException::withMessages(['table_token' => ['Los pedidos en mesa requieren el código QR de la mesa.']]);
         }
         if ($type !== OrderType::TABLE && $tableSessionId) {
             throw ValidationException::withMessages(['table_session_id' => ['Un pedido para llevar no puede estar asociado a una mesa.']]);
@@ -83,16 +86,18 @@ class OrderController extends Controller
             }
         }
 
-        if ($type === OrderType::TABLE && ! $tableSessionId) {
-            $table = RestaurantTable::query()->where('qr_token', $tableToken)->first();
-            if (! $table) throw ValidationException::withMessages(['table_token' => ['La mesa indicada no existe.']]);
-            $session = $table->tableSessions()->where('status', TableSessionStatus::Active)->first();
-            if (! $session) $session = $table->tableSessions()->create(['status' => TableSessionStatus::Active, 'started_at' => now()]);
-            $tableSessionId = $session->id;
-            $table->update(['status' => TableStatus::OCCUPIED]);
-        }
+        $order = DB::transaction(function () use ($validatedData, $type, $tableSessionId, $tableToken) {
+            // La sesión de mesa y la ocupación se crean dentro de la misma transacción
+            // que el pedido: si algo falla, no queda una mesa ocupada sin pedido.
+            if ($type === OrderType::TABLE && ! $tableSessionId) {
+                $table = RestaurantTable::query()->where('qr_token', $tableToken)->lockForUpdate()->first();
+                if (! $table) throw ValidationException::withMessages(['table_token' => ['La mesa indicada no existe.']]);
+                $session = $table->tableSessions()->where('status', TableSessionStatus::Active)->first();
+                if (! $session) $session = $table->tableSessions()->create(['status' => TableSessionStatus::Active, 'started_at' => now()]);
+                $tableSessionId = $session->id;
+                $table->update(['status' => TableStatus::OCCUPIED]);
+            }
 
-        $order = DB::transaction(function () use ($validatedData, $type, $tableSessionId) {
             $order = Order::create([
                 'table_session_id' => $tableSessionId,
                 'type' => $type,
@@ -117,6 +122,9 @@ class OrderController extends Controller
                 $product = Product::query()->with(['category', 'beverageOptions'])->findOrFail($item['product_id']);
                 if (! $product->is_available) {
                     throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' no está disponible."]]);
+                }
+                if (! $product->category?->is_active) {
+                    throw ValidationException::withMessages(['items' => ["El producto '{$product->name}' pertenece a una categoría deshabilitada."]]);
                 }
 
                 $unitPrice = (int) $product->price;
@@ -189,6 +197,10 @@ class OrderController extends Controller
 
     public function deliver(Order $order): JsonResponse
     {
+        if ($order->type === OrderType::TABLE) {
+            throw ValidationException::withMessages(['status' => ['Los pedidos en mesa no se marcan manualmente como entregados. La mesa permanece abierta hasta cobrar la cuenta.']]);
+        }
+
         if ($order->status !== OrderStatus::PREPARING) throw ValidationException::withMessages(['status' => ['El pedido debe estar EN PREPARACIÓN para poder entregarse.']]);
         $previousStatus = $order->status;
         DB::transaction(function () use ($order, $previousStatus) {

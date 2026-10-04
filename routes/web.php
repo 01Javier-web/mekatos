@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Web\AdminRecoveryController;
 use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\ClientController;
 use App\Http\Controllers\Web\WaiterController;
@@ -21,7 +22,11 @@ Route::post('/login', [AuthController::class, 'login'])->name('login.store');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 Route::get('/mesa/{token}', [ClientController::class, 'table'])->name('client.table');
 
-Route::middleware('auth')->group(function () {
+// Recuperación de emergencia del único ADMIN bloqueado (enlace enviado a ADMIN_RECOVERY_EMAIL).
+Route::get('/recuperar-admin/{token}', [AdminRecoveryController::class, 'show'])->middleware('throttle:20,1')->name('admin.recovery.show');
+Route::post('/recuperar-admin', [AdminRecoveryController::class, 'update'])->middleware('throttle:10,1')->name('admin.recovery.update');
+
+Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/waiter/orders', [WaiterController::class, 'index'])->middleware('role:ADMIN,MESERO')->name('waiter.orders');
     Route::get('/admin/orders/create', [OrderController::class, 'create'])->middleware('role:ADMIN,MESERO')->name('admin.orders.create');
     Route::post('/admin/orders', [OrderController::class, 'store'])->middleware('role:ADMIN,MESERO')->name('admin.orders.store');
@@ -40,6 +45,7 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:ADMIN')->group(function () {
         Route::get('/admin/orders/{order}/print', [PrintController::class, 'orderPack'])->name('admin.orders.print');
+        Route::get('/admin/orders/{order}/reprint', [PrintController::class, 'reprintOrder'])->name('admin.orders.reprint');
     });
 
     Route::middleware('role:ADMIN,MESERO')->group(function () {
@@ -90,5 +96,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin/users/{user}/edit', [UserController::class, 'edit'])->name('admin.users.edit');
         Route::put('/admin/users/{user}', [UserController::class, 'update'])->name('admin.users.update');
         Route::delete('/admin/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
+        Route::post('/admin/users/{user}/unlock', [UserController::class, 'unlock'])->name('admin.users.unlock');
     });
 });

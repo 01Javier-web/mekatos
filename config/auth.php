@@ -99,6 +99,15 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        // Recuperación de emergencia del único ADMIN funcional bloqueado.
+        // Token de un solo uso, guardado con hash y válido por 30 minutos.
+        'admin_recovery' => [
+            'provider' => 'users',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 30,
+            'throttle' => 60,
+        ],
     ],
 
     /*

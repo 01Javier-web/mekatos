@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\RestaurantTable;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class SalesReportController extends Controller
@@ -19,9 +20,15 @@ class SalesReportController extends Controller
 
     public function closeDay(): View
     {
+        $this->ensureNoActiveOrders();
+
         $report = $this->buildDailyReport();
 
         DB::transaction(function (): void {
+            // Se vuelve a comprobar dentro de la transacción para no borrar
+            // un pedido creado mientras se generaba el reporte.
+            $this->ensureNoActiveOrders(lock: true);
+
             $orderIds = Order::query()->pluck('id');
 
             if ($orderIds->isNotEmpty()) {
@@ -44,6 +51,35 @@ class SalesReportController extends Controller
         }
 
         return view('admin.reports.daily', $report + ['closed' => true]);
+    }
+
+    /**
+     * Impide cerrar el día mientras exista algún pedido sin terminar.
+     * Los pedidos CANCELADO (estado heredado) no se consideran activos
+     * porque ya no pueden avanzar en el flujo operativo.
+     */
+    private function ensureNoActiveOrders(bool $lock = false): void
+    {
+        $query = Order::query()->whereIn('status', [
+            OrderStatus::PENDING->value,
+            OrderStatus::PREPARING->value,
+            OrderStatus::DELIVERED->value,
+            OrderStatus::IN_TRANSIT->value,
+        ]);
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $activeOrders = $query->count();
+
+        if ($activeOrders > 0) {
+            throw ValidationException::withMessages([
+                'close' => [
+                    "No se puede cerrar el día: hay {$activeOrders} ".($activeOrders === 1 ? 'pedido que todavía no está TERMINADO' : 'pedidos que todavía no están TERMINADOS').'. Finaliza primero los pedidos pendientes (cobrar mesas, para llevar y domicilios). No se eliminó ningún registro.',
+                ],
+            ]);
+        }
     }
 
     private function renderDailyReport(): View
@@ -114,9 +150,14 @@ class SalesReportController extends Controller
             ->select('users.name', DB::raw('COUNT(orders.id) as delivered_count'))
             ->groupBy('users.id', 'users.name')->orderByDesc('delivered_count')->get();
 
+        // HOUR() es propio de MySQL/MariaDB; SQLite (usado en las pruebas) necesita strftime().
+        $hourExpression = DB::getDriverName() === 'sqlite'
+            ? "CAST(strftime('%H', paid_at) AS INTEGER)"
+            : 'HOUR(paid_at)';
+
         $hourlySales = (clone $paidOrders)
-            ->select(DB::raw("HOUR(paid_at) as hour"), DB::raw('COUNT(*) as orders_count'), DB::raw('SUM(total) as revenue'))
-            ->groupBy(DB::raw('HOUR(paid_at)'))->orderBy('hour')->get();
+            ->select(DB::raw("{$hourExpression} as hour"), DB::raw('COUNT(*) as orders_count'), DB::raw('SUM(total) as revenue'))
+            ->groupBy(DB::raw($hourExpression))->orderBy('hour')->get();
 
         $statusCounts = Order::query()
             ->where('created_at', '>=', $day)->where('created_at', '<', $nextDay)

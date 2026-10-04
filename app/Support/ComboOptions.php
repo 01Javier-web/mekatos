@@ -38,27 +38,30 @@ class ComboOptions
     {
         $type = strtoupper(trim($type));
 
-        if ($type === self::JUGO_HIT) {
-            return self::flavors()[self::JUGO_HIT];
-        }
+        // Cada tipo de bebida del combo respeta la disponibilidad configurada en
+        // las opciones del producto correspondiente.
+        $productNames = [
+            self::GASEOSA => 'Gaseosa 350 ml',
+            self::JUGO_HIT => 'Jugos Hit',
+        ];
 
-        if ($type !== self::GASEOSA) {
+        if (! array_key_exists($type, $productNames)) {
             return [];
         }
 
         $product = Product::query()
-            ->where('name', 'Gaseosa 350 ml')
+            ->where('name', $productNames[$type])
             ->first();
 
         if (! $product) {
-            return self::flavors()[self::GASEOSA];
+            return self::flavors()[$type];
         }
 
         $available = BeverageOptions::availableFor($product);
 
         return $product->beverageOptions()->exists()
             ? $available
-            : self::flavors()[self::GASEOSA];
+            : self::flavors()[$type];
     }
 
     public static function validate(Product $product, ?string $combo, ?string $type, ?string $flavor): array

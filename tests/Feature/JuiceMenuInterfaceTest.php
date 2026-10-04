@@ -40,10 +40,14 @@ class JuiceMenuInterfaceTest extends TestCase
             ->assertSee('Personaliza tu jugo')
             ->assertSee('En agua · $8.500')
             ->assertSee('En leche · $9.500')
-            ->assertSee('Maracuyá')
-            ->assertSee('Lulo')
-            ->assertSee('Mora')
-            ->assertSee('Fresa')
-            ->assertSee('Otro');
+            ->assertViewHas('juiceFruits', function (array $fruits): bool {
+                foreach (['Maracuyá', 'Lulo', 'Mora', 'Fresa', 'Otro'] as $fruit) {
+                    if (! in_array($fruit, $fruits, true)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
     }
 }

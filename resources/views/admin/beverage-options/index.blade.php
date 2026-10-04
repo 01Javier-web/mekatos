@@ -4,7 +4,7 @@
 <div class="page-shell page-shell-narrow">
     <div class="page-heading">
         <div><span class="eyebrow">Administración</span><h2>Opciones de {{ $product->name }}</h2><p>Activa o desactiva cada opción cuando se agote. Los cambios aplican al menú QR.</p></div>
-        <a class="button" href="{{ route('admin.products.edit', $product) }}">← Volver al producto</a>
+        <a class="button" href="{{ route('admin.settings.products.edit', $product) }}">← Volver al producto</a>
     </div>
 
     @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif

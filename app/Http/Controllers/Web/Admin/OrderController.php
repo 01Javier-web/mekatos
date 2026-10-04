@@ -30,7 +30,7 @@ class OrderController extends Controller
 {
     public function index(Request $request): View { $orders=Order::query()->with(['tableSession.restaurantTable','orderItems.product','handledBy'])->when($request->status,fn($q,$s)=>$q->where('status',$s),fn($q)=>$q->where('status','!=',OrderStatus::COMPLETED->value))->oldest()->get(); return view('admin.orders.index',['orders'=>$orders,'statuses'=>OrderStatus::operationalCases(),'selectedStatus'=>$request->status]); }
     public function pending(): JsonResponse { $orders=Order::query()->where('status',OrderStatus::PENDING->value)->with(['tableSession.restaurantTable','handledBy'])->oldest()->get(); return response()->json(['count'=>$orders->count(),'ids'=>$orders->pluck('id')->values(),'orders'=>$orders->map(fn(Order $o)=>['id'=>$o->id,'location'=>$o->type?->value==='PARA_LLEVAR'?'PARA LLEVAR':($o->type?->value==='DOMICILIO'?'DOMICILIO':'MESA '.($o->tableSession?->restaurantTable?->number??'—')),'time'=>$o->created_at?->format('H:i'),'responsible'=>$o->handledBy?->name??'Pedido QR'])->values()]); }
-    public function create(): View { return view('admin.orders.create-v2',['products'=>Product::query()->with(['category','beverageOptions'])->where('is_available',true)->orderBy('name')->get(),'tables'=>RestaurantTable::query()->where('status','!=',TableStatus::CLEANING->value)->orderBy('number')->get(),'categories'=>Category::query()->orderBy('name')->get(),'orderTypes'=>OrderType::cases(),'comboBeverages'=>collect(ComboOptions::types())->mapWithKeys(fn($label,$type)=>[$type=>['label'=>$label,'flavors'=>ComboOptions::availableFlavors($type)]])->all(),'comboPrice'=>ComboOptions::PRICE]); }
+    public function create(): View { return view('admin.orders.create-v2',['products'=>Product::query()->with(['category','beverageOptions'])->where('is_available',true)->whereHas('category',fn($q)=>$q->where('is_active',true))->orderBy('name')->get(),'tables'=>RestaurantTable::query()->where('status','!=',TableStatus::CLEANING->value)->orderBy('number')->get(),'categories'=>Category::query()->where('is_active',true)->orderBy('name')->get(),'orderTypes'=>OrderType::cases(),'comboBeverages'=>collect(ComboOptions::types())->mapWithKeys(fn($label,$type)=>[$type=>['label'=>$label,'flavors'=>ComboOptions::availableFlavors($type)]])->all(),'comboPrice'=>ComboOptions::PRICE,'juiceFruits'=>$this->selectableJuiceFruits()]); }
     public function store(Request $request): RedirectResponse {
         $v=$request->validate([
             'type'=>['required',Rule::enum(OrderType::class)],
@@ -95,6 +95,7 @@ class OrderController extends Controller
             foreach($v['items'] as $productId=>$quantity){
                 $p=Product::query()->with(['category','beverageOptions'])->findOrFail($productId);
                 if(!$p->is_available)throw ValidationException::withMessages(['items'=>["El producto '{$p->name}' no está disponible."]]);
+                if(!$p->category?->is_active)throw ValidationException::withMessages(['items'=>["El producto '{$p->name}' pertenece a una categoría deshabilitada."]]);
                 $quantity=(int)$quantity;
                 $price=(int)$p->price;
                 $notes=$v['item_notes'][$productId]??null;
@@ -144,9 +145,10 @@ class OrderController extends Controller
             'products' => Product::query()
                 ->with(['category', 'beverageOptions'])
                 ->where('is_available', true)
+                ->whereHas('category', fn ($query) => $query->where('is_active', true))
                 ->orderBy('name')
                 ->get(),
-            'categories' => Category::query()->orderBy('name')->get(),
+            'categories' => Category::query()->where('is_active', true)->orderBy('name')->get(),
             'comboBeverages' => collect(ComboOptions::types())
                 ->mapWithKeys(fn ($label, $type) => [
                     $type => [
@@ -155,7 +157,17 @@ class OrderController extends Controller
                     ],
                 ])
                 ->all(),
+            'juiceFruits' => $this->selectableJuiceFruits(),
         ]);
+    }
+
+    /**
+     * Frutas que se pueden elegir para el jugo natural: solo las disponibles
+     * y que el backend reconoce (JuiceOptions::buildNote las valida igual).
+     */
+    private function selectableJuiceFruits(): array
+    {
+        return array_intersect_key(JuiceOptions::availableFruits(), JuiceOptions::FRUITS);
     }
 
     public function storeAddition(Request $request, Order $order): RedirectResponse
@@ -208,6 +220,12 @@ class OrderController extends Controller
                 if (! $p->is_available) {
                     throw ValidationException::withMessages([
                         'items' => ["El producto '{$p->name}' no está disponible."],
+                    ]);
+                }
+
+                if (! $p->category?->is_active) {
+                    throw ValidationException::withMessages([
+                        'items' => ["El producto '{$p->name}' pertenece a una categoría deshabilitada."],
                     ]);
                 }
 
@@ -402,7 +420,11 @@ class OrderController extends Controller
 
         $prev = $order->status;
         DB::transaction(function () use ($order, $prev): void {
-            $order->update(['status' => OrderStatus::DELIVERED]);
+            $order->update([
+                'status' => OrderStatus::DELIVERED,
+                'delivered_by_user_id' => Auth::id(),
+                'delivered_at' => now(),
+            ]);
             $order->statusHistories()->create([
                 'previous_status' => $prev->value,
                 'new_status' => OrderStatus::DELIVERED->value,

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Models\User;
+use App\Support\LoginAttempts;
 
 class UserController extends Controller
 {
@@ -15,12 +15,10 @@ class UserController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $user = User::query()
-            ->where('email', $validated['email'])
-            ->where('is_active', true)
-            ->first();
+        // Misma regla que el login web: inactivos y bloqueados no reciben token.
+        $user = LoginAttempts::attempt($validated['email'], $validated['password']);
 
-        if (!$user || !password_verify($validated['password'], $user->password)) {
+        if (! $user) {
             return response()->json(['message' => 'Datos incorrectos, intenta de nuevo'], 401);
         }
 

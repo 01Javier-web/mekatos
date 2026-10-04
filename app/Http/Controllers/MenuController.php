@@ -10,7 +10,7 @@ class MenuController extends Controller
 {
     public function index(): JsonResponse
     {
-        $categories = Category::with([
+        $categories = Category::query()->where('is_active', true)->with([
             'products' => function ($query) {
                 $query
                     ->where('is_available', true)

@@ -60,7 +60,7 @@ class JuiceOptionsTest extends TestCase
         $session = $this->tableSession();
 
         $response = $this->postJson('/api/orders', [
-            'table_session_id' => $session->id,
+            'table_session_id' => $session->id, 'table_token' => $session->restaurantTable->qr_token,
             'items' => [[
                 'product_id' => $juice->id,
                 'quantity' => 1,
@@ -85,7 +85,7 @@ class JuiceOptionsTest extends TestCase
         $session = $this->tableSession();
 
         $response = $this->postJson('/api/orders', [
-            'table_session_id' => $session->id,
+            'table_session_id' => $session->id, 'table_token' => $session->restaurantTable->qr_token,
             'items' => [[
                 'product_id' => $juice->id,
                 'quantity' => 2,
@@ -112,7 +112,7 @@ class JuiceOptionsTest extends TestCase
         $session = $this->tableSession();
 
         $response = $this->postJson('/api/orders', [
-            'table_session_id' => $session->id,
+            'table_session_id' => $session->id, 'table_token' => $session->restaurantTable->qr_token,
             'items' => [[
                 'product_id' => $juice->id,
                 'quantity' => 1,

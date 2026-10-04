@@ -14,6 +14,8 @@
         @endif
     </div>
 
+    @if ($errors->any())<div class="alert alert-error"><strong>No se pudo cerrar el día.</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+
     @if ($closed)
         <div class="report-success"><strong>✓ Cierre completado</strong><span>El reporte que ves corresponde al cierre que acabas de realizar. Los registros operativos fueron eliminados y las mesas quedaron disponibles para comenzar un nuevo día.</span></div>
     @endif

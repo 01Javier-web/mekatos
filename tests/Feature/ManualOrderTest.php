@@ -123,6 +123,8 @@ class ManualOrderTest extends TestCase
                 $soda->id => 1,
                 $coke->id => 1,
             ],
+            'juice_preparation' => [$juice->id => 'AGUA'],
+            'juice_fruit' => [$juice->id => 'MARACUYA'],
         ]);
 
         $order = Order::query()->latest('id')->first();
@@ -164,6 +166,8 @@ class ManualOrderTest extends TestCase
             'type' => OrderType::TABLE->value,
             'table_id' => $table->id,
             'items' => [$juice->id => 2],
+            'juice_preparation' => [$juice->id => 'AGUA'],
+            'juice_fruit' => [$juice->id => 'MARACUYA'],
         ])->assertRedirect(route('waiter.orders'));
 
         $order = Order::query()->latest('id')->first();

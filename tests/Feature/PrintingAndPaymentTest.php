@@ -57,7 +57,7 @@ class PrintingAndPaymentTest extends TestCase
         }
 
         $response = $this->actingAs($admin)->get(route('admin.orders.print', $order));
-        $response->assertOk()->assertSee('Cocina')->assertSee('Jugos')->assertSee('Hamburguesa de prueba')->assertSee('Jugo Natural Jarra')->assertDontSee('Gaseosa 350 ml');
+        $response->assertOk()->assertSee('Cocina')->assertSee('Bebidas')->assertSee('Hamburguesa de prueba')->assertSee('Jugo Natural Jarra')->assertDontSee('Gaseosa 350 ml');
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => OrderStatus::PREPARING->value]);
     }
 
@@ -80,15 +80,37 @@ class PrintingAndPaymentTest extends TestCase
         $this->assertDatabaseHas('restaurant_tables', ['id' => $table->id, 'status' => TableStatus::AVAILABLE->value]);
     }
 
-    public function test_table_account_cannot_be_paid_until_all_orders_are_delivered(): void
+    public function test_table_account_cannot_be_paid_while_an_order_is_still_pending_to_print(): void
     {
+        // Regla actual: la mesa se cobra sin marcar "entregado"; solo bloquean los pedidos
+        // que todavía no se han enviado a cocina (PENDIENTE).
         $waiter = $this->waiter();
         $food = $this->product('Producto pendiente', 'Hamburguesas', 20000);
         $table = RestaurantTable::create(['number' => 13, 'capacity' => 4, 'qr_token' => 'account-test-13', 'status' => TableStatus::OCCUPIED]);
         $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
         $this->order(OrderStatus::PREPARING, $food, $session);
+        $this->order(OrderStatus::PENDING, $food, $session);
 
         $this->actingAs($waiter)->post(route('admin.accounts.pay', $session))->assertSessionHasErrors('status');
         $this->assertDatabaseHas('table_sessions', ['id' => $session->id, 'status' => TableSessionStatus::Active->value]);
+    }
+
+    public function test_table_account_can_be_paid_when_orders_are_preparing_without_manual_delivery(): void
+    {
+        $waiter = $this->waiter();
+        $food = $this->product('Producto abierto', 'Hamburguesas', 20000);
+        $table = RestaurantTable::create(['number' => 14, 'capacity' => 4, 'qr_token' => 'account-test-14', 'status' => TableStatus::OCCUPIED]);
+        $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
+        $order = $this->order(OrderStatus::PREPARING, $food, $session);
+
+        $this->actingAs($waiter)->post(route('admin.accounts.pay', $session))->assertRedirect(route('waiter.orders'));
+
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => OrderStatus::COMPLETED->value]);
+        $this->assertDatabaseHas('order_status_histories', [
+            'order_id' => $order->id,
+            'previous_status' => OrderStatus::PREPARING->value,
+            'new_status' => OrderStatus::COMPLETED->value,
+        ]);
+        $this->assertDatabaseHas('restaurant_tables', ['id' => $table->id, 'status' => TableStatus::AVAILABLE->value]);
     }
 }

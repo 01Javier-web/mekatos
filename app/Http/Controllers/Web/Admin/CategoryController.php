@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Web\Admin;
 
+use Illuminate\Database\QueryException;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\RedirectResponse;
@@ -84,7 +85,17 @@ class CategoryController extends Controller
 
     public function destroy(Category $category): RedirectResponse
     {
-        $category->delete();
+        try {
+            $category->delete();
+        } catch (QueryException $e) {
+            // 23000: restricción de integridad (el registro está en uso por otros datos).
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+
+            return redirect()->route('admin.settings.categories.index')
+                ->withErrors(['category' => "No se puede eliminar la categoría '{$category->name}' porque tiene productos asociados. Puedes deshabilitarla."]);
+        }
 
         return redirect()->route('admin.settings.categories.index')->with('success', 'Categoría eliminada exitosamente.');
     }

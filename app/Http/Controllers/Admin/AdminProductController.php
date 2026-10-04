@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Database\QueryException;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
@@ -76,7 +77,16 @@ class AdminProductController extends Controller
 
     public function destroy(Product $product): JsonResponse
     {
-        $product->delete();
+        try {
+            $product->delete();
+        } catch (QueryException $e) {
+            // 23000: restricción de integridad (el registro está en uso por otros datos).
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+
+            return response()->json(['message' => 'No se puede eliminar: el producto está registrado en pedidos.'], 409);
+        }
 
         return response()->json([
             'message' => 'Producto eliminado exitosamente',

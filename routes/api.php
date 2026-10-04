@@ -17,7 +17,7 @@ Route::get('/menu', [MenuController::class, 'index'])->middleware('throttle:60,1
 Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:15,1');
 Route::post('/login', [UserController::class, 'login'])->middleware('throttle:10,1');
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::post('/logout', [UserController::class, 'logout']);
 
     Route::middleware('role:ADMIN')->group(function () {

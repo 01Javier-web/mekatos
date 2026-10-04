@@ -34,6 +34,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        function updatePendingBadges(data) {
+            const count = Number(data?.count || 0);
+            document.querySelectorAll('.nav-pending-badge').forEach(badge => {
+                badge.textContent = count > 99 ? '99+' : String(count);
+                badge.hidden = count === 0;
+                badge.setAttribute('aria-label', `${count} ${count === 1 ? 'pedido pendiente nuevo' : 'pedidos pendientes nuevos'}`);
+            });
+        }
+
         async function refreshPendingBadge() {
             try {
                 const response = await fetch('/admin/orders/pending', {
@@ -41,20 +50,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     cache: 'no-store'
                 });
                 if (!response.ok) return;
-                const data = await response.json();
-                const count = Number(data.count || 0);
-                document.querySelectorAll('.nav-pending-badge').forEach(badge => {
-                    badge.textContent = count > 99 ? '99+' : String(count);
-                    badge.hidden = count === 0;
-                    badge.setAttribute('aria-label', `${count} ${count === 1 ? 'pedido pendiente nuevo' : 'pedidos pendientes nuevos'}`);
-                });
+                updatePendingBadges(await response.json());
             } catch (error) {
                 console.warn('No se pudo actualizar el contador de pedidos.', error);
             }
         }
 
-        refreshPendingBadge();
-        window.setInterval(refreshPendingBadge, 5000);
+        if (window.mekatosPendingPoller) {
+            // La página ya consulta /admin/orders/pending (p. ej. la lista de pedidos):
+            // se reutilizan sus respuestas para no duplicar las peticiones.
+            document.addEventListener('mekatos:pending-updated', event => updatePendingBadges(event.detail));
+            if (window.mekatosPendingSnapshot) updatePendingBadges(window.mekatosPendingSnapshot);
+        } else {
+            refreshPendingBadge();
+            window.setInterval(refreshPendingBadge, 5000);
+        }
     }
 
     const headerInner = document.querySelector('.header-inner');
@@ -63,7 +73,14 @@ document.addEventListener('DOMContentLoaded', () => {
         clock.className = 'app-live-clock';
         clock.id = 'app-live-clock';
         clock.setAttribute('aria-label', 'Hora actual de Colombia');
-        headerInner.insertBefore(clock, headerInner.querySelector('.user-menu') || null);
+        // .user-menu está dentro de .main-nav (no es hijo directo de .header-inner),
+        // por eso se inserta en su contenedor real.
+        const userMenu = headerInner.querySelector('.user-menu');
+        if (userMenu && userMenu.parentNode) {
+            userMenu.parentNode.insertBefore(clock, userMenu);
+        } else {
+            headerInner.appendChild(clock);
+        }
 
         const formatter = new Intl.DateTimeFormat('es-CO', {
             timeZone: 'America/Bogota',

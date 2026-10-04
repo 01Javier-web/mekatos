@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Web\Admin;
 
+use Illuminate\Database\QueryException;
 use App\Http\Controllers\Controller;
 use App\Models\RestaurantTable;
 use App\TableSessionStatus;
@@ -111,7 +112,17 @@ class TableController extends Controller
 
     public function destroy(RestaurantTable $restaurantTable): RedirectResponse
     {
-        $restaurantTable->delete();
+        try {
+            $restaurantTable->delete();
+        } catch (QueryException $e) {
+            // 23000: restricción de integridad (el registro está en uso por otros datos).
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+
+            return redirect()->route('admin.tables.index')
+                ->with('error', "No se puede eliminar la Mesa {$restaurantTable->number} porque tiene pedidos o sesiones registradas.");
+        }
 
         return redirect()->route('admin.tables.index')->with('success', 'Mesa eliminada exitosamente.');
     }

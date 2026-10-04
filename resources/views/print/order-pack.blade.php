@@ -15,6 +15,7 @@
             <section class="ticket">
                 <img class="ticket-logo" src="{{ asset('images/mekatos-logo.png') }}" alt="Mekatos Comidas Rápidas">
                 <h1>Cocina</h1>
+                @if($isReprint ?? false)<div class="meta"><div><strong>*** REIMPRESIÓN ***</strong></div></div>@endif
                 <div class="location">{{ in_array($order->type?->value, ['PARA_LLEVAR','DOMICILIO'], true) ? ($order->type?->value === 'DOMICILIO' ? 'DOMICILIO' : 'PARA LLEVAR') : 'MESA '.($order->tableSession?->restaurantTable?->number ?? '—') }}</div>
                 <div class="meta"><div><strong>Hora:</strong> {{ $order->created_at?->format('H:i') }}</div><div><strong>Responsable:</strong> {{ $order->handledBy?->name ?? 'Pedido QR' }}</div></div>
                 @foreach($kitchenItems as $item)
@@ -46,6 +47,7 @@
             <section class="ticket">
                 <img class="ticket-logo" src="{{ asset('images/mekatos-logo.png') }}" alt="Mekatos Comidas Rápidas">
                 <h1>Bebidas</h1>
+                @if($isReprint ?? false)<div class="meta"><div><strong>*** REIMPRESIÓN ***</strong></div></div>@endif
                 <div class="location">{{ in_array($order->type?->value, ['PARA_LLEVAR','DOMICILIO'], true) ? ($order->type?->value === 'DOMICILIO' ? 'DOMICILIO' : 'PARA LLEVAR') : 'MESA '.($order->tableSession?->restaurantTable?->number ?? '—') }}</div>
                 <div class="meta"><div><strong>Hora:</strong> {{ $order->created_at?->format('H:i') }}</div><div><strong>Responsable:</strong> {{ $order->handledBy?->name ?? 'Pedido QR' }}</div></div>
                 @foreach($beverageItems as $item)
@@ -60,6 +62,7 @@
             <section class="ticket">
                 <img class="ticket-logo" src="{{ asset('images/mekatos-logo.png') }}" alt="Mekatos Comidas Rápidas">
                 <h1>{{ $isAddition ? 'Actualización del pedido' : 'Pedido completo' }}</h1>
+                @if($isReprint ?? false)<div class="meta"><div><strong>*** REIMPRESIÓN ***</strong></div></div>@endif
                 <div class="takeaway-label">{{ $isAddition ? 'ADICIÓN #'.$roundNumber : ($order->type?->value === 'DOMICILIO' ? 'DOMICILIO' : 'PARA LLEVAR') }}</div>
                 <div class="meta">
                     <div><strong>Pedido:</strong> #{{ $order->id }}</div>

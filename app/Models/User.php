@@ -32,7 +32,17 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'role' => UserRole::class, 
+            'failed_login_attempts' => 'integer',
+            'locked_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Bloqueado por intentos fallidos de inicio de sesión (independiente de is_active).
+     */
+    public function isLocked(): bool
+    {
+        return $this->locked_at !== null;
     }
 
     public function handledOrders(): HasMany
