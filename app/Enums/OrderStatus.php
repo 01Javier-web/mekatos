@@ -7,6 +7,7 @@ enum OrderStatus: string
     case PENDING = 'PENDIENTE';
     case PREPARING = 'EN PREPARACIÓN';
     case DELIVERED = 'ENTREGADO';
+    case IN_TRANSIT = 'EN CAMINO';
     case COMPLETED = 'TERMINADO';
 
     // Conserva registros históricos anteriores sin ofrecer este estado en la operación actual.
@@ -14,6 +15,6 @@ enum OrderStatus: string
 
     public static function operationalCases(): array
     {
-        return [self::PENDING, self::PREPARING, self::DELIVERED, self::COMPLETED];
+        return [self::PENDING, self::PREPARING, self::DELIVERED, self::IN_TRANSIT, self::COMPLETED];
     }
 }
