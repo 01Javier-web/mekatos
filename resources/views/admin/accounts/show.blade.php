@@ -16,18 +16,17 @@
         <div class="panel-header"><div><h3>Consumo acumulado</h3><span>{{ $orders->count() }} {{ $orders->count() === 1 ? 'pedido' : 'pedidos' }}</span></div><strong class="account-total">${{ number_format($total,0,',','.') }}</strong></div>
         <div class="detail-body">
             @foreach($orders as $order)
-                @php $isDelivered = $order->status === \App\Enums\OrderStatus::DELIVERED; @endphp
+                @php
+                    $accountStatus = $order->status === \App\Enums\OrderStatus::PREPARING
+                        ? 'ABIERTA'
+                        : ($order->status === \App\Enums\OrderStatus::DELIVERED ? 'LISTO' : $order->status->value);
+                @endphp
                 <div class="account-order-status">
                     <div><span>Pedido #{{ $order->id }}</span><small>{{ $order->created_at?->format('H:i') ?? '—' }} · {{ $order->handledBy?->name ?? 'Pedido QR' }}</small></div>
-                    @if($isDelivered)
-                        <strong class="account-status account-status-delivered">ENTREGADO</strong>
-                    @elseif($order->status === \App\Enums\OrderStatus::PREPARING)
-                        <form method="POST" action="{{ route('admin.orders.deliver', $order) }}" onsubmit="return confirm('¿Confirmas que el Pedido #{{ $order->id }} ya fue entregado?');">
-                            @csrf @method('PUT')
-                            <button type="submit" class="account-deliver-button">✓ Marcar entregado</button>
-                        </form>
+                    @if(in_array($order->status, [\App\Enums\OrderStatus::PREPARING, \App\Enums\OrderStatus::DELIVERED], true))
+                        <strong class="account-status account-status-delivered">{{ $accountStatus }}</strong>
                     @else
-                        <strong class="account-status account-status-blocked">{{ $order->status->value }}</strong>
+                        <strong class="account-status account-status-blocked">{{ $accountStatus }}</strong>
                     @endif
                 </div>
                 @foreach($order->orderItems as $item)
@@ -36,6 +35,7 @@
                         <strong>${{ number_format($item->total,0,',','.') }}</strong>
                     </div>
                 @endforeach
+            @endforeach
             @endforeach
             <div class="totals"><div class="total-row"><span>Total</span><strong>${{ number_format($total,0,',','.') }}</strong></div></div>
             @if($notReady->isNotEmpty())
