@@ -36,7 +36,6 @@
                     </div>
                 @endforeach
             @endforeach
-            @endforeach
             <div class="totals"><div class="total-row"><span>Total</span><strong>${{ number_format($total,0,',','.') }}</strong></div></div>
             @if($notReady->isNotEmpty())
                 <div class="info-box" style="margin-top:16px">
