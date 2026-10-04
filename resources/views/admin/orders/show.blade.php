@@ -31,7 +31,7 @@
     <div class="order-detail-grid">
         <section class="panel"><div class="panel-header"><h3>Acciones</h3><span>El pedido sigue el flujo operativo de Mekatos.</span></div><div class="detail-body actions-stack">
             @if($order->orderItems->contains(fn ($item) => $item->sent_at === null))
-                <a class="button button-print-pending" href="{{ route('admin.orders.print',$order) }}">🖨️ {{ $order->status === \App\Enums\OrderStatus::PENDING ? 'Imprimir comandas' : 'Imprimir adición' }}</a>
+                <a class="button button-print-pending" target="_blank" rel="noopener" href="{{ route('admin.orders.print',$order) }}">🖨️ {{ $order->status === \App\Enums\OrderStatus::PENDING ? 'Imprimir comandas' : 'Imprimir adición' }}</a>
             @endif
             @if($order->status !== \App\Enums\OrderStatus::COMPLETED && (($order->type?->value === 'MESA' && $order->tableSession) || in_array($order->status,[\App\Enums\OrderStatus::PENDING,\App\Enums\OrderStatus::PREPARING],true)))
                 <a class="button" href="{{ route('admin.orders.add',$order) }}">＋ Agregar al pedido</a>
