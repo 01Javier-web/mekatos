@@ -127,7 +127,7 @@ class OrderController extends Controller
             }
 
             $this->applyPortionPairings($order, $v['portion_pairing'] ?? [], $createdItems);
-            $order->update(['subtotal'=>$subtotal,'packaging_fee'=>$packagingFee,'tax'=>0,'total'=>$subtotal+$packagingFee]);
+            $order->update(['subtotal'=>$subtotal,'packaging_fee'=>$packagingFee,'tax'=>0,'total'=>$subtotal+$packagingFee+(int)$order->delivery_fee+(int)$order->tax]);
             $order->statusHistories()->create(['previous_status'=>null,'new_status'=>OrderStatus::PENDING->value,'changed_by_user_id'=>Auth::id(),'changed_at'=>now()]);
             return $order;
         });
