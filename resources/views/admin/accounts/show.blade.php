@@ -3,7 +3,7 @@
 @section('content')
 @php
     $backRoute = auth()->user()?->role?->value === 'ADMIN' ? 'admin.orders.index' : 'waiter.orders';
-    $notDelivered = $orders->filter(fn($order) => $order->status !== \App\Enums\OrderStatus::DELIVERED);
+    $notReady = $orders->filter(fn($order) => ! in_array($order->status, [\App\Enums\OrderStatus::PREPARING, \App\Enums\OrderStatus::DELIVERED], true));
 @endphp
 <div class="page-shell page-shell-narrow">
     <div class="page-heading">
@@ -38,10 +38,10 @@
                 @endforeach
             @endforeach
             <div class="totals"><div class="total-row"><span>Total</span><strong>${{ number_format($total,0,',','.') }}</strong></div></div>
-            @if($notDelivered->isNotEmpty())
+            @if($notReady->isNotEmpty())
                 <div class="info-box" style="margin-top:16px">
                     <strong>La cuenta todavía no puede cerrarse.</strong><br>
-                    Los pedidos que estén <strong>EN PREPARACIÓN</strong> se pueden marcar como entregados directamente aquí. Los demás pendientes aparecen identificados arriba.
+                    Hay pedidos que todavía no han sido enviados a cocina. Termina de imprimirlos antes de cobrar la mesa.
                 </div>
             @else
                 <div class="account-actions">
