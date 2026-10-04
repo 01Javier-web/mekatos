@@ -5,9 +5,28 @@
     <div class="page-heading"><div><span class="eyebrow">Operación</span><h2>Pedido #{{ $order->id }}</h2><p>{{ $order->type?->value === 'PARA_LLEVAR' ? '🥡 Para llevar' : ($order->type?->value === 'DOMICILIO' ? '🛵 Domicilio' : '🪑 Mesa '.($order->tableSession?->restaurantTable?->number ?? '—')) }} · {{ $order->created_at?->format('d/m/Y H:i') }}</p></div><a class="button" href="{{ route('admin.orders.index') }}">← Volver a pedidos</a></div>
     @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if ($errors->any())<div class="alert alert-error"><strong>No se pudo completar la acción.</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-    <section class="order-status-banner status-banner-{{ strtolower(str_replace(' ','-',$order->status->value)) }}">
-        <div><span class="eyebrow">Estado actual</span><strong>{{ $order->status->value }}</strong><small>{{ match($order->status->value){'PENDIENTE'=>'Esperando que caja imprima las comandas.','EN PREPARACIÓN'=>'Las comandas fueron impresas y el pedido está en preparación.','ENTREGADO'=>'El pedido ya fue entregado y está pendiente de pago.','TERMINADO'=>'El pedido fue pagado y cerrado.'} }}</small></div>
-        <div class="order-progress" aria-label="Progreso del pedido"><span class="{{ in_array($order->status->value,['PENDIENTE','EN PREPARACIÓN','ENTREGADO','TERMINADO'])?'done':'' }}">1</span><i></i><span class="{{ in_array($order->status->value,['EN PREPARACIÓN','ENTREGADO','TERMINADO'])?'done':'' }}">2</span><i></i><span class="{{ in_array($order->status->value,['ENTREGADO','TERMINADO'])?'done':'' }}">3</span><i></i><span class="{{ $order->status->value==='TERMINADO'?'done':'' }}">4</span></div>
+    @php
+        $displayStatus = $order->type?->value === 'MESA' && $order->status === \App\Enums\OrderStatus::PREPARING
+            ? 'ABIERTA'
+            : match($order->status) {
+                \App\Enums\OrderStatus::DELIVERED => 'LISTO',
+                \App\Enums\OrderStatus::IN_TRANSIT => 'EN CAMINO',
+                \App\Enums\OrderStatus::PENDING => 'PENDIENTE',
+                \App\Enums\OrderStatus::PREPARING => 'EN PREPARACIÓN',
+                default => 'TERMINADO',
+            };
+        $statusDescription = match($displayStatus) {
+            'PENDIENTE' => 'Esperando que caja imprima las comandas.',
+            'EN PREPARACIÓN' => 'Las comandas fueron impresas y el pedido está en preparación.',
+            'ABIERTA' => 'La mesa sigue abierta y puede recibir nuevas adiciones.',
+            'LISTO' => 'El pedido está listo para recogida o para salir a domicilio.',
+            'EN CAMINO' => 'El domicilio salió con el repartidor.',
+            default => 'El pedido fue pagado y cerrado.',
+        };
+    @endphp
+    <section class="order-status-banner status-banner-{{ strtolower(str_replace(' ','-',$displayStatus)) }}">
+        <div><span class="eyebrow">Estado actual</span><strong>{{ $displayStatus }}</strong><small>{{ $statusDescription }}</small></div>
+        <div class="order-progress" aria-label="Progreso del pedido"><span class="{{ in_array($order->status->value,['PENDIENTE','EN PREPARACIÓN','ENTREGADO','EN CAMINO','TERMINADO'])?'done':'' }}">1</span><i></i><span class="{{ in_array($order->status->value,['EN PREPARACIÓN','ENTREGADO','EN CAMINO','TERMINADO'])?'done':'' }}">2</span><i></i><span class="{{ in_array($order->status->value,['ENTREGADO','EN CAMINO','TERMINADO'])?'done':'' }}">3</span><i></i><span class="{{ $order->status->value==='TERMINADO'?'done':'' }}">4</span></div>
     </section>
     <div class="order-detail-grid">
         <section class="panel"><div class="panel-header"><h3>Acciones</h3><span>El pedido sigue el flujo operativo de Mekatos.</span></div><div class="detail-body actions-stack">
@@ -17,16 +36,16 @@
             @if($order->status !== \App\Enums\OrderStatus::COMPLETED && (($order->type?->value === 'MESA' && $order->tableSession) || in_array($order->status,[\App\Enums\OrderStatus::PENDING,\App\Enums\OrderStatus::PREPARING],true)))
                 <a class="button" href="{{ route('admin.orders.add',$order) }}">＋ Agregar al pedido</a>
             @endif
-            @if($order->status === \App\Enums\OrderStatus::PREPARING)
-                <form method="POST" action="{{ route('admin.orders.deliver',$order) }}" onsubmit="return confirm('¿Confirmas que este pedido ya fue entregado?');">@csrf @method('PUT')<button class="button button-primary" type="submit">✓ Marcar como entregado</button></form>
-                <p class="muted">Las comandas ya fueron impresas. Cuando el pedido llegue a la mesa o se entregue al cliente, márcalo como ENTREGADO.</p>
-            @endif
-            @if($order->status === \App\Enums\OrderStatus::DELIVERED)
-                @if($order->type?->value === 'PARA_LLEVAR')
-                    <form method="POST" action="{{ route('admin.orders.pay',$order) }}" onsubmit="return confirm('¿Confirmas que el pedido fue pagado?');">@csrf<button class="button button-primary" type="submit">💰 Registrar pago</button></form>
-                @elseif($order->tableSession)
-                    <a class="button button-primary" href="{{ route('admin.accounts.show',$order->tableSession) }}">💰 Ver / cobrar cuenta</a>
-                @endif
+            @if($order->type?->value === 'MESA' && $order->tableSession && $order->status !== \App\Enums\OrderStatus::COMPLETED)
+                <a class="button button-primary" href="{{ route('admin.accounts.show',$order->tableSession) }}">💰 Ver / cobrar cuenta</a>
+            @elseif($order->status === \App\Enums\OrderStatus::PREPARING && in_array($order->type?->value,['PARA_LLEVAR','DOMICILIO'],true))
+                <form method="POST" action="{{ route('admin.orders.deliver',$order) }}">@csrf @method('PUT')<button class="button button-primary" type="submit">✓ Marcar como listo</button></form>
+            @elseif($order->status === \App\Enums\OrderStatus::DELIVERED && $order->type?->value === 'DOMICILIO')
+                <form method="POST" action="{{ route('admin.orders.dispatch',$order) }}">@csrf @method('PUT')<button class="button button-primary" type="submit">🛵 Marcar en camino</button></form>
+            @elseif($order->status === \App\Enums\OrderStatus::DELIVERED && $order->type?->value === 'PARA_LLEVAR')
+                <form method="POST" action="{{ route('admin.orders.pay',$order) }}" onsubmit="return confirm('¿Confirmas que el pedido fue pagado?');">@csrf<button class="button button-primary" type="submit">💰 Registrar pago</button></form>
+            @elseif($order->status === \App\Enums\OrderStatus::IN_TRANSIT && $order->type?->value === 'DOMICILIO')
+                <form method="POST" action="{{ route('admin.orders.pay',$order) }}" onsubmit="return confirm('¿Confirmas que el domicilio fue entregado y pagado?');">@csrf<button class="button button-primary" type="submit">💰 Confirmar entrega y pago</button></form>
             @endif
             @if($order->status === \App\Enums\OrderStatus::COMPLETED)<p class="muted">Pedido terminado{{ $order->paid_at ? ' el '.$order->paid_at->format('d/m/Y H:i') : '' }}{{ $order->paidBy ? ' por '.$order->paidBy->name : '' }}.</p>@endif
             <div class="order-meta"><div><span>Creado por</span><strong>{{ $order->handledBy?->name ?? 'Pedido QR' }}</strong></div><div><span>Tipo</span><strong>{{ $order->type?->value === 'PARA_LLEVAR' ? 'Para llevar' : ($order->type?->value === 'DOMICILIO' ? 'Domicilio' : 'En mesa') }}</strong></div></div>
