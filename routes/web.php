@@ -36,6 +36,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->middleware('role:ADMIN')->name('admin.orders.show');
     Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:ADMIN')->name('admin.orders.status');
     Route::put('/admin/orders/{order}/deliver', [OrderController::class, 'deliver'])->middleware('role:ADMIN,MESERO')->name('admin.orders.deliver');
+    Route::put('/admin/orders/{order}/dispatch', [OrderController::class, 'dispatch'])->middleware('role:ADMIN,MESERO')->name('admin.orders.dispatch');
 
     Route::middleware('role:ADMIN')->group(function () {
         Route::get('/admin/orders/{order}/print', [PrintController::class, 'orderPack'])->name('admin.orders.print');
