@@ -62,13 +62,13 @@ class OrderApiTest extends TestCase
         $this->postJson('/api/orders', ['type' => OrderType::TABLE->value, 'table_session_id' => $session->id, 'table_token' => $session->restaurantTable->qr_token, 'items' => [['product_id' => $product->id, 'quantity' => 1]]])->assertUnprocessable();
     }
 
-    public function test_preparing_order_can_be_delivered_by_waiter(): void
+    public function test_api_has_no_manual_deliver_step(): void
     {
+        // El paso manual "entregar" desapareció de la API: la impresión lleva a ENTREGADO.
         $waiter = $this->waiter(); $product = $this->product();
-        $order = Order::create(['type' => OrderType::TAKEAWAY, 'status' => OrderStatus::PREPARING, 'subtotal' => 18000, 'tax' => 0, 'total' => 18000]);
+        $order = Order::create(['type' => OrderType::TAKEAWAY, 'status' => OrderStatus::PENDING, 'subtotal' => 18000, 'tax' => 0, 'total' => 18000]);
         $order->orderItems()->create(['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 18000, 'total' => 18000]);
-        $response = $this->actingAs($waiter, 'sanctum')->putJson('/api/orders/' . $order->id . '/deliver');
-        $response->assertOk()->assertJsonPath('order.status', OrderStatus::DELIVERED->value);
-        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => OrderStatus::DELIVERED->value, 'delivered_by_user_id' => $waiter->id]);
+        $this->actingAs($waiter, 'sanctum')->putJson('/api/orders/' . $order->id . '/deliver')->assertNotFound();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => OrderStatus::PENDING->value, 'delivered_by_user_id' => null]);
     }
 }

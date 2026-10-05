@@ -49,7 +49,4 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::put('/admin/tables/{restaurantTable}', [RestaurantTableController::class, 'update']);
         Route::delete('/admin/tables/{restaurantTable}', [RestaurantTableController::class, 'destroy']);
     });
-
-    Route::put('/orders/{order}/deliver', [OrderController::class, 'deliver'])
-        ->middleware('role:ADMIN,MESERO');
 });

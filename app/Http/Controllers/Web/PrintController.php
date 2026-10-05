@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web;
 
 use App\Enums\OrderStatus;
+use App\Enums\OrderType;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\TableSession;
@@ -19,9 +20,9 @@ class PrintController extends Controller
 {
     public function orderPack(Order $order): View
     {
-        if (! in_array($order->status, [OrderStatus::PENDING, OrderStatus::PREPARING, OrderStatus::DELIVERED], true)) {
+        if (! in_array($order->status->operational(), [OrderStatus::PENDING, OrderStatus::DELIVERED], true)) {
             throw ValidationException::withMessages([
-                'status' => ['Solo se pueden imprimir pedidos pendientes, en preparación o con nuevas adiciones pendientes.'],
+                'status' => ['Solo se pueden imprimir pedidos pendientes o con nuevas adiciones pendientes.'],
             ]);
         }
 
@@ -49,17 +50,37 @@ class PrintController extends Controller
         $previousStatus = $order->status;
 
         DB::transaction(function () use ($order, $unsentItems, $previousStatus): void {
-            $order->update(['status' => OrderStatus::PREPARING]);
+            // La impresión operativa es la que entrega el pedido: PENDIENTE → ENTREGADO.
+            // Quien imprime queda como responsable de la entrega (reporte de entregas).
+            $order->update([
+                'status' => OrderStatus::DELIVERED,
+                'delivered_by_user_id' => Auth::id(),
+                'delivered_at' => now(),
+            ]);
 
             $order->statusHistories()->create([
                 'previous_status' => $previousStatus->value,
-                'new_status' => OrderStatus::PREPARING->value,
+                'new_status' => OrderStatus::DELIVERED->value,
                 'changed_by_user_id' => Auth::id(),
                 'changed_at' => now(),
                 'notes' => $previousStatus === OrderStatus::PENDING
                     ? 'Comandas impresas.'
                     : 'Nueva adición impresa.',
             ]);
+
+            // PARA_LLEVAR: la impresión incluye el "Pedido completo" con el TOTAL (su cuenta),
+            // así que, como al imprimir la cuenta de una mesa, queda ENTREGADO → POR COBRAR.
+            if ($order->type === OrderType::TAKEAWAY) {
+                $order->update(['status' => OrderStatus::TO_COLLECT]);
+
+                $order->statusHistories()->create([
+                    'previous_status' => OrderStatus::DELIVERED->value,
+                    'new_status' => OrderStatus::TO_COLLECT->value,
+                    'changed_by_user_id' => Auth::id(),
+                    'changed_at' => now(),
+                    'notes' => 'Pedido para llevar impreso con total.',
+                ]);
+            }
 
             // Todos los productos de una misma impresión comparten la misma marca de
             // tiempo; así la reimpresión puede identificar exactamente ese envío.
@@ -211,10 +232,50 @@ class PrintController extends Controller
     public function printAccount(TableSession $tableSession): View
     {
         $this->loadActiveAccount($tableSession);
+        $this->markAccountToCollect($tableSession);
         $orders = $tableSession->orders;
         $total = $orders->sum('total');
 
         return view('print.account', compact('tableSession', 'orders', 'total'));
+    }
+
+    /**
+     * Al imprimir la cuenta, los pedidos ya entregados de la mesa pasan a POR COBRAR
+     * (con su historial). No cambia ningún otro dato de la cuenta; los pedidos que
+     * siguen PENDIENTES o que ya están POR COBRAR no se tocan.
+     */
+    private function markAccountToCollect(TableSession $tableSession): void
+    {
+        DB::transaction(function () use ($tableSession): void {
+            // Orden de bloqueo mesa → sesión → pedidos (ver TableSessionLock).
+            $session = TableSessionLock::lockSession($tableSession->id);
+
+            if (! TableSessionLock::isActive($session)) {
+                return;
+            }
+
+            $orders = $session->orders()
+                ->lockForUpdate()
+                ->where('status', '!=', OrderStatus::COMPLETED->value)
+                ->get();
+
+            foreach ($orders as $order) {
+                if ($order->status->operational() !== OrderStatus::DELIVERED) {
+                    continue;
+                }
+
+                $previousStatus = $order->status;
+                $order->update(['status' => OrderStatus::TO_COLLECT]);
+
+                $order->statusHistories()->create([
+                    'previous_status' => $previousStatus->value,
+                    'new_status' => OrderStatus::TO_COLLECT->value,
+                    'changed_by_user_id' => Auth::id(),
+                    'changed_at' => now(),
+                    'notes' => 'Cuenta impresa.',
+                ]);
+            }
+        });
     }
 
     private function loadActiveAccount(TableSession $tableSession): void
@@ -258,8 +319,9 @@ class PrintController extends Controller
                 ]);
             }
 
+            // Se cobra desde ENTREGADO o POR COBRAR (y sus equivalentes heredados); nunca PENDIENTE.
             $notReady = $orders->filter(
-                fn (Order $order): bool => ! in_array($order->status, [OrderStatus::PREPARING, OrderStatus::DELIVERED], true)
+                fn (Order $order): bool => ! $order->status->isCollectable()
             );
 
             if ($notReady->isNotEmpty()) {
@@ -318,11 +380,9 @@ class PrintController extends Controller
             ]);
         }
 
-        $allowedStatuses = $order->type?->value === 'DOMICILIO'
-            ? [OrderStatus::IN_TRANSIT]
-            : [OrderStatus::DELIVERED];
-
-        if (! in_array($order->status, $allowedStatuses, true)) {
+        // PARA_LLEVAR y DOMICILIO se cobran desde ENTREGADO o POR COBRAR
+        // (y sus equivalentes heredados); nunca PENDIENTE.
+        if (! $order->status->isCollectable()) {
             throw ValidationException::withMessages([
                 'status' => ['El pedido todavía no está listo para cerrar y registrar el pago.'],
             ]);

@@ -73,20 +73,16 @@ class WaiterPaymentPermissionsTest extends TestCase
         return TableSession::findOrFail($first->table_session_id);
     }
 
-    /** PARA_LLEVAR listo (ENTREGADO), pendiente de registrar el pago. */
+    /** PARA_LLEVAR impreso (POR COBRAR), disponible para cobro. */
     private function readyTakeaway(): Order
     {
-        $order = $this->createOrder(OrderType::TAKEAWAY);
-        $this->actingAs($this->admin)->put(route('admin.orders.deliver', $order))->assertSessionHasNoErrors();
-
-        return $order->fresh();
+        return $this->createOrder(OrderType::TAKEAWAY);
     }
 
-    /** DOMICILIO EN CAMINO, pendiente de registrar el pago. */
+    /** DOMICILIO que "🛵 Salió" (POR COBRAR), pendiente de registrar el pago. */
     private function deliveryInTransit(): Order
     {
         $order = $this->createOrder(OrderType::DELIVERY);
-        $this->actingAs($this->admin)->put(route('admin.orders.deliver', $order))->assertSessionHasNoErrors();
         $this->actingAs($this->admin)->put(route('admin.orders.dispatch', $order))->assertSessionHasNoErrors();
 
         return $order->fresh();
@@ -144,8 +140,8 @@ class WaiterPaymentPermissionsTest extends TestCase
         $this->actingAs($this->waiter)->post(route('admin.orders.pay', $delivery))->assertForbidden();
 
         $this->assertSame($before, $this->snapshot());
-        $this->assertSame(OrderStatus::DELIVERED, $takeaway->fresh()->status);
-        $this->assertSame(OrderStatus::IN_TRANSIT, $delivery->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $takeaway->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $delivery->fresh()->status);
         $this->assertNull($takeaway->fresh()->paid_at);
         $this->assertNull($delivery->fresh()->paid_at);
     }
@@ -182,12 +178,12 @@ class WaiterPaymentPermissionsTest extends TestCase
         $this->actingAs($this->waiter)->get(route('admin.orders.reprint', $takeaway))->assertOk()->assertSee('REIMPRESIÓN');
         $this->actingAs($this->waiter)->get(route('admin.orders.print', $takeaway))->assertForbidden();
 
-        $this->actingAs($this->waiter)->put(route('admin.orders.deliver', $takeaway))->assertRedirect(route('waiter.orders'));
-        $this->actingAs($this->waiter)->put(route('admin.orders.deliver', $delivery))->assertRedirect(route('waiter.orders'));
+        // El mesero conserva "🛵 Salió" en los domicilios (antes "Marcar en camino").
         $this->actingAs($this->waiter)->put(route('admin.orders.dispatch', $delivery))->assertRedirect(route('waiter.orders'));
 
-        $this->assertSame(OrderStatus::DELIVERED, $takeaway->fresh()->status);
-        $this->assertSame(OrderStatus::IN_TRANSIT, $delivery->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $takeaway->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $delivery->fresh()->status);
+        $this->assertSame($this->waiter->id, $delivery->fresh()->delivered_by_user_id);
     }
 
     // --- ADMIN: conserva todo ---

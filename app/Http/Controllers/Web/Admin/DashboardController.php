@@ -18,8 +18,9 @@ class DashboardController extends Controller
         return view('admin.dashboard', [
             'ordersCount' => Order::count(),
             'pendingOrders' => Order::where('status', OrderStatus::PENDING)->count(),
-            'preparingOrders' => Order::where('status', OrderStatus::PREPARING)->count(),
-            'deliveredOrders' => Order::where('status', OrderStatus::DELIVERED)->count(),
+            // Incluye los estados heredados equivalentes (EN PREPARACIÓN y EN CAMINO).
+            'deliveredOrders' => Order::whereIn('status', OrderStatus::DELIVERED->storedValues())->count(),
+            'toCollectOrders' => Order::whereIn('status', OrderStatus::TO_COLLECT->storedValues())->count(),
             'productsCount' => Product::count(),
             'categoriesCount' => Category::count(),
             'tablesCount' => RestaurantTable::count(),

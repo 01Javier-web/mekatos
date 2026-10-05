@@ -194,20 +194,4 @@ class OrderController extends Controller
         $order->load(['orderItems.product', 'statusHistories', 'tableSession.restaurantTable', 'handledBy']);
         return response()->json(['message' => 'Pedido creado exitosamente', 'order' => $order], 201);
     }
-
-    public function deliver(Order $order): JsonResponse
-    {
-        if ($order->type === OrderType::TABLE) {
-            throw ValidationException::withMessages(['status' => ['Los pedidos en mesa no se marcan manualmente como entregados. La mesa permanece abierta hasta cobrar la cuenta.']]);
-        }
-
-        if ($order->status !== OrderStatus::PREPARING) throw ValidationException::withMessages(['status' => ['El pedido debe estar EN PREPARACIÓN para poder entregarse.']]);
-        $previousStatus = $order->status;
-        DB::transaction(function () use ($order, $previousStatus) {
-            $order->update(['status' => OrderStatus::DELIVERED, 'delivered_by_user_id' => Auth::id(), 'delivered_at' => now()]);
-            $order->statusHistories()->create(['previous_status' => $previousStatus->value, 'new_status' => OrderStatus::DELIVERED->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
-        });
-        $order->load(['orderItems.product', 'statusHistories', 'tableSession.restaurantTable', 'deliveredBy']);
-        return response()->json(['message' => 'Pedido entregado exitosamente', 'order' => $order]);
-    }
 }

@@ -29,7 +29,7 @@ use Illuminate\View\View;
 
 class OrderController extends Controller
 {
-    public function index(Request $request): View { $orders=Order::query()->with(['tableSession.restaurantTable','orderItems.product','handledBy'])->when($request->status,fn($q,$s)=>$q->where('status',$s),fn($q)=>$q->where('status','!=',OrderStatus::COMPLETED->value))->oldest()->get(); return view('admin.orders.index',['orders'=>$orders,'statuses'=>OrderStatus::operationalCases(),'selectedStatus'=>$request->status]); }
+    public function index(Request $request): View { $orders=Order::query()->with(['tableSession.restaurantTable','orderItems.product','handledBy'])->when($request->status,fn($q,$s)=>$q->whereIn('status',OrderStatus::tryFrom($s)?->storedValues() ?? [$s]),fn($q)=>$q->where('status','!=',OrderStatus::COMPLETED->value))->oldest()->get(); return view('admin.orders.index',['orders'=>$orders,'statuses'=>OrderStatus::operationalCases(),'selectedStatus'=>$request->status]); }
     public function pending(): JsonResponse { $orders=Order::query()->where('status',OrderStatus::PENDING->value)->with(['tableSession.restaurantTable','handledBy'])->oldest()->get(); return response()->json(['count'=>$orders->count(),'ids'=>$orders->pluck('id')->values(),'orders'=>$orders->map(fn(Order $o)=>['id'=>$o->id,'location'=>$o->type?->value==='PARA_LLEVAR'?'PARA LLEVAR':($o->type?->value==='DOMICILIO'?'DOMICILIO':'MESA '.($o->tableSession?->restaurantTable?->number??'—')),'time'=>$o->created_at?->format('H:i'),'responsible'=>$o->handledBy?->name??'Pedido QR'])->values()]); }
     public function create(): View { return view('admin.orders.create-v2',['products'=>Product::query()->with(['category','beverageOptions'])->where('is_available',true)->whereHas('category',fn($q)=>$q->where('is_active',true))->orderBy('name')->get(),'tables'=>RestaurantTable::query()->where('status','!=',TableStatus::CLEANING->value)->orderBy('number')->get(),'categories'=>Category::query()->where('is_active',true)->orderBy('name')->get(),'orderTypes'=>OrderType::cases(),'comboBeverages'=>collect(ComboOptions::types())->mapWithKeys(fn($label,$type)=>[$type=>['label'=>$label,'flavors'=>ComboOptions::availableFlavors($type)]])->all(),'comboPrice'=>ComboOptions::PRICE,'juiceFruits'=>$this->selectableJuiceFruits()]); }
     public function store(Request $request): RedirectResponse {
@@ -233,6 +233,7 @@ class OrderController extends Controller
             ]);
 
             $createdItems = [];
+            $additionPackagingFee = 0;
 
             foreach ($v['items'] as $productId => $quantity) {
                 $p = Product::query()->with(['category', 'beverageOptions'])->findOrFail($productId);
@@ -297,19 +298,16 @@ class OrderController extends Controller
                     'notes' => $notes,
                     'sent_at' => null,
                 ]);
+                $additionPackagingFee += TakeawayPackaging::fee($p, $quantity, $order->type->value);
             }
 
             $this->applyPortionPairings($order, $v['portion_pairing'] ?? [], $createdItems);
 
             $order->load('orderItems.product');
             $subtotal = $order->orderItems->sum('total');
-            $packagingFee = $order->orderItems->sum(
-                fn ($item) => TakeawayPackaging::fee(
-                    $item->product,
-                    (int) $item->quantity,
-                    $order->type->value
-                )
-            );
+            // Solo se suma el icopor de los productos de esta adición: el que ya tenía el
+            // pedido se respeta tal cual (no se recalcula retroactivamente con reglas nuevas).
+            $packagingFee = (int) $order->packaging_fee + $additionPackagingFee;
 
             $previousStatus = $order->status;
             $order->update([
@@ -402,10 +400,11 @@ class OrderController extends Controller
                 ]);
             }
 
-            if (! in_array($order->status, [
+            // La mesa sigue abierta hasta que se cobra la cuenta (también POR COBRAR).
+            if (! in_array($order->status->operational(), [
                 OrderStatus::PENDING,
-                OrderStatus::PREPARING,
                 OrderStatus::DELIVERED,
+                OrderStatus::TO_COLLECT,
             ], true)) {
                 throw ValidationException::withMessages([
                     'order' => ['La mesa no está disponible para recibir una nueva adición.'],
@@ -415,42 +414,55 @@ class OrderController extends Controller
             return;
         }
 
-        if (! in_array($order->status, [OrderStatus::PENDING, OrderStatus::PREPARING], true)) {
+        // PARA_LLEVAR: también POR COBRAR (pasa a POR COBRAR al imprimirse, igual que antes
+        // admitía adiciones ya impreso). DOMICILIO: solo hasta que "🛵 Salió" (POR COBRAR).
+        $allowed = $order->type === OrderType::TAKEAWAY
+            ? [OrderStatus::PENDING, OrderStatus::DELIVERED, OrderStatus::TO_COLLECT]
+            : [OrderStatus::PENDING, OrderStatus::DELIVERED];
+
+        if (! in_array($order->status->operational(), $allowed, true)) {
             throw ValidationException::withMessages([
-                'order' => ['Este pedido ya fue entregado y no admite nuevas adiciones.'],
+                'order' => ['Este pedido ya salió o está por cobrar y no admite nuevas adiciones.'],
             ]);
         }
     }
 
     public function show(Order $order): View {$order->load(['tableSession.restaurantTable','orderItems.product','statusHistories.changedBy','handledBy','deliveredBy','paidBy']);return view('admin.orders.show',['order'=>$order,'statuses'=>OrderStatus::operationalCases()]);}
-    public function updateStatus(Request $request,Order $order): RedirectResponse {$v=$request->validate(['status'=>['required',Rule::enum(OrderStatus::class)]]);$new=OrderStatus::from($v['status']);if($order->status!==OrderStatus::PENDING||$new!==OrderStatus::PREPARING)throw ValidationException::withMessages(['status'=>['El cambio a EN PREPARACIÓN se realiza al imprimir las comandas del pedido.']]);DB::transaction(function()use($order,$new){$prev=$order->status;$order->update(['status'=>$new]);$order->statusHistories()->create(['previous_status'=>$prev->value,'new_status'=>$new->value,'changed_by_user_id'=>Auth::id(),'changed_at'=>now()]);});return redirect()->route('admin.orders.show',$order)->with('success','Estado del pedido actualizado exitosamente.');}
-    public function deliver(Order $order): RedirectResponse
+    public function updateStatus(Request $request,Order $order): RedirectResponse {$request->validate(['status'=>['required',Rule::enum(OrderStatus::class)]]);
+        // Ya no hay cambios manuales de estado: PENDIENTE → ENTREGADO ocurre al imprimir las
+        // comandas, y ENTREGADO → POR COBRAR al imprimir la cuenta (mesa) o con "🛵 Salió" (domicilio).
+        throw ValidationException::withMessages(['status'=>['El estado del pedido no se cambia manualmente: pasa a ENTREGADO al imprimir las comandas.']]);}
+    /**
+     * "🛵 Salió": el domicilio ya entregado (impreso) sale con el repartidor y queda
+     * POR COBRAR. Quien marca la salida queda como responsable de la entrega.
+     */
+    public function dispatch(Order $order): RedirectResponse
     {
-        if ($order->type === OrderType::TABLE) {
+        if ($order->type !== OrderType::DELIVERY) {
             throw ValidationException::withMessages([
-                'status' => ['Los pedidos en mesa no se marcan manualmente como entregados. La mesa permanece abierta hasta cobrar la cuenta.'],
+                'status' => ['Solo los domicilios pueden marcarse como "Salió".'],
             ]);
         }
 
-        if ($order->status !== OrderStatus::PREPARING) {
+        if ($order->status->operational() !== OrderStatus::DELIVERED) {
             throw ValidationException::withMessages([
-                'status' => ['El pedido debe estar EN PREPARACIÓN para poder marcarlo como listo.'],
+                'status' => ['El domicilio debe estar ENTREGADO (comandas impresas) antes de marcar que salió.'],
             ]);
         }
 
         $prev = $order->status;
         DB::transaction(function () use ($order, $prev): void {
             $order->update([
-                'status' => OrderStatus::DELIVERED,
+                'status' => OrderStatus::TO_COLLECT,
                 'delivered_by_user_id' => Auth::id(),
                 'delivered_at' => now(),
             ]);
             $order->statusHistories()->create([
                 'previous_status' => $prev->value,
-                'new_status' => OrderStatus::DELIVERED->value,
+                'new_status' => OrderStatus::TO_COLLECT->value,
                 'changed_by_user_id' => Auth::id(),
                 'changed_at' => now(),
-                'notes' => 'Pedido listo para entrega o recogida.',
+                'notes' => 'Domicilio salió.',
             ]);
         });
 
@@ -458,39 +470,6 @@ class OrderController extends Controller
 
         return redirect()
             ->route($route, $route === 'admin.orders.show' ? $order : [])
-            ->with('success', 'Pedido marcado como listo.');
-    }
-
-    public function dispatch(Order $order): RedirectResponse
-    {
-        if ($order->type !== OrderType::DELIVERY) {
-            throw ValidationException::withMessages([
-                'status' => ['Solo los domicilios pueden pasar a EN CAMINO.'],
-            ]);
-        }
-
-        if ($order->status !== OrderStatus::DELIVERED) {
-            throw ValidationException::withMessages([
-                'status' => ['El domicilio debe estar LISTO antes de salir en camino.'],
-            ]);
-        }
-
-        $prev = $order->status;
-        DB::transaction(function () use ($order, $prev): void {
-            $order->update(['status' => OrderStatus::IN_TRANSIT]);
-            $order->statusHistories()->create([
-                'previous_status' => $prev->value,
-                'new_status' => OrderStatus::IN_TRANSIT->value,
-                'changed_by_user_id' => Auth::id(),
-                'changed_at' => now(),
-                'notes' => 'Domicilio salió en camino.',
-            ]);
-        });
-
-        $route = Auth::user()?->role?->value === 'MESERO' ? 'waiter.orders' : 'admin.orders.show';
-
-        return redirect()
-            ->route($route, $route === 'admin.orders.show' ? $order : [])
-            ->with('success', 'Domicilio marcado EN CAMINO.');
+            ->with('success', 'Domicilio marcado como "Salió". Queda POR COBRAR.');
     }
 }

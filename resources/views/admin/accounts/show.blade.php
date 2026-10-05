@@ -3,7 +3,7 @@
 @section('content')
 @php
     $backRoute = auth()->user()?->role?->value === 'ADMIN' ? 'admin.orders.index' : 'waiter.orders';
-    $notReady = $orders->filter(fn($order) => ! in_array($order->status, [\App\Enums\OrderStatus::PREPARING, \App\Enums\OrderStatus::DELIVERED], true));
+    $notReady = $orders->filter(fn($order) => ! $order->status->isCollectable());
 @endphp
 <div class="page-shell page-shell-narrow">
     <div class="page-heading">
@@ -17,13 +17,11 @@
         <div class="detail-body">
             @foreach($orders as $order)
                 @php
-                    $accountStatus = $order->status === \App\Enums\OrderStatus::PREPARING
-                        ? 'ABIERTA'
-                        : ($order->status === \App\Enums\OrderStatus::DELIVERED ? 'LISTO' : $order->status->value);
+                    $accountStatus = $order->status->operational()->value;
                 @endphp
                 <div class="account-order-status">
                     <div><span>Pedido #{{ $order->id }}</span><small>{{ $order->created_at?->format('H:i') ?? '—' }} · {{ $order->handledBy?->name ?? 'Pedido QR' }}</small></div>
-                    @if(in_array($order->status, [\App\Enums\OrderStatus::PREPARING, \App\Enums\OrderStatus::DELIVERED], true))
+                    @if($order->status->isCollectable())
                         <strong class="account-status account-status-delivered">{{ $accountStatus }}</strong>
                     @else
                         <strong class="account-status account-status-blocked">{{ $accountStatus }}</strong>

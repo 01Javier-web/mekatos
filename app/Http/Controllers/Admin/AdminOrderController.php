@@ -8,8 +8,6 @@ use Illuminate\Http\Request;
 use App\Models\Order;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use App\Enums\OrderStatus;
 
 class AdminOrderController extends Controller
@@ -31,17 +29,10 @@ class AdminOrderController extends Controller
 
     public function updateStatus(Request $request, Order $order): JsonResponse
     {
-        $validated = $request->validate(['status' => ['required', Rule::enum(OrderStatus::class)]]);
-        $newStatus = OrderStatus::from($validated['status']);
-        if ($order->status !== OrderStatus::PENDING || $newStatus !== OrderStatus::PREPARING) {
-            throw ValidationException::withMessages(['status' => ['El cambio a EN PREPARACIÓN se realiza al imprimir las comandas del pedido.']]);
-        }
-        DB::transaction(function () use ($order, $newStatus) {
-            $previousStatus = $order->status;
-            $order->update(['status' => $newStatus]);
-            $order->statusHistories()->create(['previous_status' => $previousStatus->value, 'new_status' => $newStatus->value, 'changed_by_user_id' => Auth::id(), 'changed_at' => now()]);
-        });
-        $order->load(['tableSession.restaurantTable', 'orderItems.product', 'statusHistories', 'handledBy', 'deliveredBy', 'paidBy']);
-        return response()->json(['message' => 'Estado del pedido actualizado exitosamente', 'order' => $order]);
+        $request->validate(['status' => ['required', Rule::enum(OrderStatus::class)]]);
+
+        // Ya no hay cambios manuales de estado (igual que en la web): PENDIENTE → ENTREGADO
+        // ocurre al imprimir las comandas.
+        throw ValidationException::withMessages(['status' => ['El estado del pedido no se cambia manualmente: pasa a ENTREGADO al imprimir las comandas.']]);
     }
 }

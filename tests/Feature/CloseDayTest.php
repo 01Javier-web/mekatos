@@ -69,11 +69,7 @@ class CloseDayTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.orders.print', $order))->assertOk();
     }
 
-    private function deliver(Order $order): void
-    {
-        $this->actingAs($this->admin)->put(route('admin.orders.deliver', $order))->assertSessionHasNoErrors();
-    }
-
+    /** "🛵 Salió": ENTREGADO → POR COBRAR. */
     private function dispatchDelivery(Order $order): void
     {
         $this->actingAs($this->admin)->put(route('admin.orders.dispatch', $order))->assertSessionHasNoErrors();
@@ -100,12 +96,10 @@ class CloseDayTest extends TestCase
 
         $takeaway = $this->createOrder(OrderType::TAKEAWAY);
         $this->print($takeaway);
-        $this->deliver($takeaway);
         $this->payOrder($takeaway);
 
         $delivery = $this->createOrder(OrderType::DELIVERY);
         $this->print($delivery);
-        $this->deliver($delivery);
         $this->dispatchDelivery($delivery);
         $this->payOrder($delivery);
 
@@ -248,43 +242,58 @@ class CloseDayTest extends TestCase
         $this->assertSame(TableStatus::OCCUPIED, RestaurantTable::where('number', 5)->first()->status);
     }
 
-    public function test_close_is_rejected_with_an_order_in_preparation(): void
+    public function test_close_is_rejected_with_a_delivered_table_order(): void
     {
         $this->completedDayWithEveryOrderType();
-        $preparing = $this->createOrder(OrderType::TABLE, $this->table(5));
-        $this->print($preparing);
-        $this->assertSame(OrderStatus::PREPARING, $preparing->fresh()->status);
+        $delivered = $this->createOrder(OrderType::TABLE, $this->table(5));
+        $this->print($delivered);
+        $this->assertSame(OrderStatus::DELIVERED, $delivered->fresh()->status);
 
-        $this->assertRejectedWithoutChanges($this->operationalCounts(), $preparing);
+        $this->assertRejectedWithoutChanges($this->operationalCounts(), $delivered);
 
-        $this->assertSame(OrderStatus::PREPARING, $preparing->fresh()->status);
+        $this->assertSame(OrderStatus::DELIVERED, $delivered->fresh()->status);
         $this->assertSame(TableStatus::OCCUPIED, RestaurantTable::where('number', 5)->first()->status);
     }
 
-    public function test_close_is_rejected_with_a_delivered_but_unpaid_order(): void
+    public function test_close_is_rejected_with_a_printed_but_unpaid_takeaway(): void
     {
         $this->completedDayWithEveryOrderType();
         $ready = $this->createOrder(OrderType::TAKEAWAY);
         $this->print($ready);
-        $this->deliver($ready);
-        $this->assertSame(OrderStatus::DELIVERED, $ready->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $ready->fresh()->status);
 
         $this->assertRejectedWithoutChanges($this->operationalCounts(), $ready);
 
-        $this->assertSame(OrderStatus::DELIVERED, $ready->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $ready->fresh()->status);
     }
 
-    public function test_close_is_rejected_with_a_delivery_in_transit(): void
+    public function test_close_is_rejected_with_orders_to_collect(): void
     {
         $this->completedDayWithEveryOrderType();
-        $inTransit = $this->createOrder(OrderType::DELIVERY);
-        $this->print($inTransit);
-        $this->deliver($inTransit);
-        $this->dispatchDelivery($inTransit);
-        $this->assertSame(OrderStatus::IN_TRANSIT, $inTransit->fresh()->status);
+        $delivery = $this->createOrder(OrderType::DELIVERY);
+        $this->print($delivery);
+        $this->dispatchDelivery($delivery);
+        $tableOrder = $this->createOrder(OrderType::TABLE, $this->table(6));
+        $this->print($tableOrder);
+        $this->actingAs($this->admin)->get(route('admin.accounts.print', $tableOrder->table_session_id))->assertOk();
+        $this->assertSame(OrderStatus::TO_COLLECT, $delivery->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $tableOrder->fresh()->status);
 
-        $this->assertRejectedWithoutChanges($this->operationalCounts(), $inTransit);
+        $this->assertRejectedWithoutChanges($this->operationalCounts(), $delivery, $tableOrder);
 
+        $this->assertSame(OrderStatus::TO_COLLECT, $delivery->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $tableOrder->fresh()->status);
+    }
+
+    public function test_close_is_rejected_with_legacy_preparing_and_in_transit_orders(): void
+    {
+        $this->completedDayWithEveryOrderType();
+        $preparing = Order::create(['table_session_id' => null, 'type' => OrderType::TAKEAWAY, 'status' => OrderStatus::PREPARING, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
+        $inTransit = Order::create(['table_session_id' => null, 'type' => OrderType::DELIVERY, 'status' => OrderStatus::IN_TRANSIT, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
+
+        $this->assertRejectedWithoutChanges($this->operationalCounts(), $preparing, $inTransit);
+
+        $this->assertSame(OrderStatus::PREPARING, $preparing->fresh()->status);
         $this->assertSame(OrderStatus::IN_TRANSIT, $inTransit->fresh()->status);
     }
 
@@ -321,7 +330,7 @@ class CloseDayTest extends TestCase
 
         $this->assertSame(OrderStatus::PENDING, $tableOrder->fresh()->status);
         $this->assertSame(OrderStatus::PENDING, $takeaway->fresh()->status);
-        $this->assertSame(OrderStatus::PREPARING, $delivery->fresh()->status);
+        $this->assertSame(OrderStatus::DELIVERED, $delivery->fresh()->status);
         $this->assertSame(TableStatus::OCCUPIED, $table->fresh()->status);
         $this->assertSame(2, $tableOrder->fresh()->orderItems()->sum('quantity'));
     }

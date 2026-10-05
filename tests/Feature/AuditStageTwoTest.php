@@ -83,20 +83,20 @@ class AuditStageTwoTest extends TestCase
 
     // 4. API deliver
 
-    public function test_api_cannot_deliver_table_orders_but_still_delivers_takeaway(): void
+    public function test_api_manual_deliver_step_no_longer_exists(): void
     {
+        // El paso manual "listo/entregado" desapareció: la impresión lleva a ENTREGADO.
         $waiter = $this->waiter();
         $table = $this->table(31, 'qr-31');
         $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
         $tableOrder = Order::create(['table_session_id' => $session->id, 'type' => OrderType::TABLE, 'status' => OrderStatus::PREPARING, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
-        $takeaway = Order::create(['type' => OrderType::TAKEAWAY, 'status' => OrderStatus::PREPARING, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
+        $takeaway = Order::create(['type' => OrderType::TAKEAWAY, 'status' => OrderStatus::PENDING, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
 
-        $this->actingAs($waiter, 'sanctum')->putJson('/api/orders/'.$tableOrder->id.'/deliver')
-            ->assertUnprocessable()->assertJsonValidationErrors('status');
+        $this->actingAs($waiter, 'sanctum')->putJson('/api/orders/'.$tableOrder->id.'/deliver')->assertNotFound();
+        $this->actingAs($waiter, 'sanctum')->putJson('/api/orders/'.$takeaway->id.'/deliver')->assertNotFound();
+
         $this->assertSame(OrderStatus::PREPARING, $tableOrder->fresh()->status);
-
-        $this->actingAs($waiter, 'sanctum')->putJson('/api/orders/'.$takeaway->id.'/deliver')->assertOk();
-        $this->assertSame(OrderStatus::DELIVERED, $takeaway->fresh()->status);
+        $this->assertSame(OrderStatus::PENDING, $takeaway->fresh()->status);
     }
 
     // 5. Usuarios desactivados
@@ -146,36 +146,40 @@ class AuditStageTwoTest extends TestCase
 
     // 7. Estado visible de la mesa
 
-    public function test_preparing_table_order_is_shown_as_abierta(): void
+    public function test_legacy_preparing_orders_are_shown_as_entregado(): void
     {
+        // EN PREPARACIÓN es un estado heredado: se muestra como su equivalente ENTREGADO.
         $admin = $this->admin();
         $table = $this->table(32, 'qr-32');
         $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
         $tableOrder = Order::create(['table_session_id' => $session->id, 'type' => OrderType::TABLE, 'status' => OrderStatus::PREPARING, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
-        Order::create(['type' => OrderType::TAKEAWAY, 'status' => OrderStatus::PREPARING, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
+        $takeaway = Order::create(['type' => OrderType::TAKEAWAY, 'status' => OrderStatus::PREPARING, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
 
         foreach ([route('waiter.orders'), route('admin.orders.index'), route('admin.dashboard')] as $url) {
             $html = $this->actingAs($admin)->get($url)->assertOk()->getContent();
-            $this->assertStringContainsString('ABIERTA</span>', $html, $url);
-            // El para llevar sigue mostrando su estado real.
-            $this->assertStringContainsString('EN PREPARACIÓN</span>', $html, $url);
+            $this->assertSame(2, substr_count($html, 'ENTREGADO</span>'), $url);
+            $this->assertStringNotContainsString('EN PREPARACIÓN</span>', $html, $url);
+            $this->assertStringNotContainsString('ABIERTA</span>', $html, $url);
         }
 
-        // El estado almacenado no cambia.
+        // El estado almacenado no cambia (no hay UPDATE de datos heredados).
         $this->assertSame(OrderStatus::PREPARING, $tableOrder->fresh()->status);
+        $this->assertSame(OrderStatus::PREPARING, $takeaway->fresh()->status);
     }
 
     // 8. Entrega: delivered_by / delivered_at
 
-    public function test_web_deliver_records_who_and_when(): void
+    public function test_delivery_salio_records_who_and_when(): void
     {
+        // "🛵 Salió" (antes EN CAMINO) registra quién y cuándo. Funciona también sobre un
+        // domicilio heredado EN PREPARACIÓN (equivalente a ENTREGADO).
         $waiter = $this->waiter();
         $order = Order::create(['type' => OrderType::DELIVERY, 'status' => OrderStatus::PREPARING, 'subtotal' => 1000, 'delivery_fee' => 3000, 'tax' => 0, 'total' => 4000, 'customer_name' => 'Cliente', 'customer_phone' => '300', 'delivery_address' => 'Calle 1']);
 
-        $this->actingAs($waiter)->put(route('admin.orders.deliver', $order))->assertRedirect(route('waiter.orders'));
+        $this->actingAs($waiter)->put(route('admin.orders.dispatch', $order))->assertRedirect(route('waiter.orders'));
 
         $fresh = $order->fresh();
-        $this->assertSame(OrderStatus::DELIVERED, $fresh->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $fresh->status);
         $this->assertSame($waiter->id, $fresh->delivered_by_user_id);
         $this->assertNotNull($fresh->delivered_at);
         $this->assertNull($fresh->paid_at);

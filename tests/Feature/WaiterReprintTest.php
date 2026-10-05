@@ -95,7 +95,7 @@ class WaiterReprintTest extends TestCase
 
         $this->actingAs($this->admin)->get(route('admin.orders.print', $order))->assertOk();
 
-        $this->assertSame(OrderStatus::PREPARING, $order->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $order->fresh()->status);
     }
 
     // --- MESERO puede reimprimir, solo lectura ---
@@ -119,15 +119,13 @@ class WaiterReprintTest extends TestCase
     {
         $takeaway = $this->createOrder(OrderType::TAKEAWAY);
         $this->actingAs($this->admin)->get(route('admin.orders.print', $takeaway))->assertOk();
-        $this->actingAs($this->admin)->put(route('admin.orders.deliver', $takeaway));
 
         $delivery = $this->createOrder(OrderType::DELIVERY, ['customer_name' => 'Cliente', 'customer_phone' => '3000000000', 'delivery_address' => 'Calle 1', 'delivery_fee' => '3000']);
         $this->actingAs($this->admin)->get(route('admin.orders.print', $delivery))->assertOk();
-        $this->actingAs($this->admin)->put(route('admin.orders.deliver', $delivery));
         $this->actingAs($this->admin)->put(route('admin.orders.dispatch', $delivery));
 
-        $this->assertSame(OrderStatus::DELIVERED, $takeaway->fresh()->status);
-        $this->assertSame(OrderStatus::IN_TRANSIT, $delivery->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $takeaway->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $delivery->fresh()->status);
         $before = $this->snapshot();
 
         foreach ([$takeaway, $delivery, $takeaway] as $order) {

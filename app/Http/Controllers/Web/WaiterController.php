@@ -13,18 +13,20 @@ class WaiterController extends Controller
     {
         $orders = Order::query()
             ->with(['tableSession.restaurantTable', 'orderItems.product'])
-            ->whereIn('status', [OrderStatus::PENDING, OrderStatus::PREPARING, OrderStatus::DELIVERED, OrderStatus::IN_TRANSIT])
+            // Pedidos activos: PENDIENTE, ENTREGADO y POR COBRAR (incluye los estados heredados).
+            ->whereIn('status', [OrderStatus::PENDING, OrderStatus::DELIVERED, OrderStatus::TO_COLLECT, OrderStatus::PREPARING, OrderStatus::IN_TRANSIT])
             ->latest()
             ->get();
+
+        $countOf = fn (OrderStatus $status): int => $orders->filter(fn (Order $order): bool => $order->status->operational() === $status)->count();
 
         return view('waiter.orders', [
             'orders' => $orders,
             'counts' => [
                 'total' => $orders->count(),
-                'pending' => $orders->where('status', OrderStatus::PENDING)->count(),
-                'preparing' => $orders->where('status', OrderStatus::PREPARING)->count(),
-                'delivered' => $orders->where('status', OrderStatus::DELIVERED)->count(),
-                'in_transit' => $orders->where('status', OrderStatus::IN_TRANSIT)->count(),
+                'pending' => $countOf(OrderStatus::PENDING),
+                'delivered' => $countOf(OrderStatus::DELIVERED),
+                'to_collect' => $countOf(OrderStatus::TO_COLLECT),
             ],
         ]);
     }

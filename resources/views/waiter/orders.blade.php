@@ -12,8 +12,8 @@
     <section class="stats-grid" aria-label="Resumen de pedidos">
         <div class="stat-card"><span>Pedidos activos</span><strong>{{ $counts['total'] }}</strong><small>En seguimiento</small></div>
         <div class="stat-card stat-attention"><span>Pendientes</span><strong>{{ $counts['pending'] }}</strong><small>Esperando impresión</small></div>
-        <div class="stat-card"><span>En preparación</span><strong>{{ $counts['preparing'] }}</strong><small>En cocina</small></div>
-        <div class="stat-card stat-ready"><span>Listos</span><strong>{{ $counts['delivered'] }}</strong><small>Listos para recoger o entregar</small></div>
+        <div class="stat-card"><span>Entregados</span><strong>{{ $counts['delivered'] }}</strong><small>Comandas impresas</small></div>
+        <div class="stat-card stat-ready"><span>Por cobrar</span><strong>{{ $counts['to_collect'] }}</strong><small>Pendientes de cobro en caja</small></div>
     </section>
 
     <section class="waiter-toolbar panel" aria-label="Filtros de pedidos">
@@ -23,9 +23,9 @@
 
     <div class="waiter-grid" id="waiter-grid">
         @forelse ($orders as $order)
-            @php $status = $order->status; $isTable = $order->type?->value === 'MESA'; $isTakeaway = $order->type?->value === 'PARA_LLEVAR'; $isDelivery = $order->type?->value === 'DOMICILIO'; $tableNumber = $order->tableSession?->restaurantTable?->number; $canAdd = $isTable ? in_array($status, [\App\Enums\OrderStatus::PENDING, \App\Enums\OrderStatus::PREPARING, \App\Enums\OrderStatus::DELIVERED], true) : in_array($status, [\App\Enums\OrderStatus::PENDING, \App\Enums\OrderStatus::PREPARING], true); $isAdmin = auth()->user()?->role === \App\UserRole::Admin; @endphp
+            @php $status = $order->status->operational(); $isTable = $order->type?->value === 'MESA'; $isTakeaway = $order->type?->value === 'PARA_LLEVAR'; $isDelivery = $order->type?->value === 'DOMICILIO'; $tableNumber = $order->tableSession?->restaurantTable?->number; $canAdd = ($isTable || $isTakeaway) ? in_array($status, [\App\Enums\OrderStatus::PENDING, \App\Enums\OrderStatus::DELIVERED, \App\Enums\OrderStatus::TO_COLLECT], true) : in_array($status, [\App\Enums\OrderStatus::PENDING, \App\Enums\OrderStatus::DELIVERED], true); $isAdmin = auth()->user()?->role === \App\UserRole::Admin; @endphp
             <article class="waiter-card" data-kind="{{ $isDelivery ? 'delivery' : ($isTakeaway ? 'takeaway' : 'table') }}" data-search="{{ strtolower('#'.$order->id.' '.($tableNumber ? 'mesa '.$tableNumber : 'para llevar')) }}">
-                <div class="waiter-card-top"><div><span class="eyebrow">Pedido #{{ $order->id }}</span><h3>{{ $isDelivery ? 'Domicilio' : ($isTakeaway ? 'Para llevar' : 'Mesa '.$tableNumber) }}</h3></div><span class="status status-order status-{{ strtolower(str_replace(' ','-',$status->value)) }}">{{ $isTable && $status === \App\Enums\OrderStatus::PREPARING ? 'ABIERTA' : $status->value }}</span></div>
+                <div class="waiter-card-top"><div><span class="eyebrow">Pedido #{{ $order->id }}</span><h3>{{ $isDelivery ? 'Domicilio' : ($isTakeaway ? 'Para llevar' : 'Mesa '.$tableNumber) }}</h3></div><span class="status status-order status-{{ strtolower(str_replace(' ','-',$status->value)) }}">{{ $status->value }}</span></div>
                 <div class="waiter-meta"><div><span>Tipo</span><strong>{{ $isDelivery ? '🛵 Domicilio' : ($isTakeaway ? '🥡 Para llevar' : '🪑 Servicio en mesa') }}</strong></div><div><span>Hora</span><strong>{{ $order->created_at?->format('H:i') ?? '—' }}</strong></div></div>
                 @if ($order->notes)<div class="info-box"><strong>Nota general para cocina</strong><br>{{ $order->notes }}</div>@endif
                 <div class="waiter-items">@foreach ($order->orderItems as $item)<div><span><strong>{{ $item->quantity }}×</strong> {{ $item->product?->name ?? 'Producto' }}@if($item->notes)<small class="item-note-display">⚠ {{ $item->notes }}</small>@endif</span><strong>${{ number_format($item->total, 0, ',', '.') }}</strong></div>@endforeach</div>
@@ -34,20 +34,17 @@
                     @if($order->orderItems->contains(fn ($item) => $item->sent_at !== null))<a class="button" target="_blank" rel="noopener" href="{{ route('admin.orders.reprint',$order) }}">🔁 Reimprimir última comanda</a>@endif
                     @if ($status === \App\Enums\OrderStatus::PENDING)
                         <span class="muted action-message">Esperando impresión en caja.</span>
-                    @elseif ($status === \App\Enums\OrderStatus::PREPARING)
-                        @if($isTable && $order->tableSession)
-                            <a class="button button-primary" href="{{ route('admin.accounts.show',$order->tableSession) }}">{{ $isAdmin ? '💰 Ver / cobrar cuenta' : '🧾 Ver cuenta' }}</a>
-                        @else
-                            <form method="POST" action="{{ route('admin.orders.deliver', $order) }}">@csrf @method('PUT')<button class="button button-primary" type="submit">✓ Marcar como listo</button></form>
+                    @elseif ($isTable && $order->tableSession)
+                        <a class="button button-primary" href="{{ route('admin.accounts.show',$order->tableSession) }}">{{ $isAdmin ? '💰 Ver / cobrar cuenta' : '🧾 Ver cuenta' }}</a>
+                    @elseif (! $isTable)
+                        @if($isDelivery && $status === \App\Enums\OrderStatus::DELIVERED)
+                            <form method="POST" action="{{ route('admin.orders.dispatch', $order) }}">@csrf @method('PUT')<button class="button button-primary" type="submit">🛵 Salió</button></form>
                         @endif
-                    @elseif ($status === \App\Enums\OrderStatus::DELIVERED)
-                        @if($isDelivery)
-                            <form method="POST" action="{{ route('admin.orders.dispatch', $order) }}">@csrf @method('PUT')<button class="button button-primary" type="submit">🛵 Marcar en camino</button></form>
-                        @elseif($isTakeaway)
-                            @if($isAdmin)<form method="POST" action="{{ route('admin.orders.pay', $order) }}" onsubmit="return confirm('¿Confirmas que el pedido fue pagado?');">@csrf<button class="button button-primary" type="submit">💰 Registrar pago</button></form>@else<span class="muted action-message">Pendiente de cobro en caja.</span>@endif
+                        @if($isAdmin)
+                            <form method="POST" action="{{ route('admin.orders.pay', $order) }}" onsubmit="return confirm('{{ $isDelivery ? '¿Confirmas que el domicilio fue entregado y pagado?' : '¿Confirmas que el pedido fue pagado?' }}');">@csrf<button class="button button-primary" type="submit">{{ $isDelivery ? '💰 Confirmar entrega y pago' : '💰 Registrar pago' }}</button></form>
+                        @elseif(! ($isDelivery && $status === \App\Enums\OrderStatus::DELIVERED))
+                            <span class="muted action-message">Pendiente de cobro en caja.</span>
                         @endif
-                    @elseif ($status === \App\Enums\OrderStatus::IN_TRANSIT)
-                        @if($isAdmin)<form method="POST" action="{{ route('admin.orders.pay', $order) }}" onsubmit="return confirm('¿Confirmas que el domicilio fue entregado y pagado?');">@csrf<button class="button button-primary" type="submit">💰 Confirmar entrega y pago</button></form>@else<span class="muted action-message">Pendiente de cobro en caja.</span>@endif
                     @endif
                 </div>
             </article>

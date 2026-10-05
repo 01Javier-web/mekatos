@@ -25,7 +25,8 @@ class TakeawayPackaging
 
     public static function fee(Product $product, int $quantity, string $orderType): int
     {
-        if ($orderType !== 'PARA_LLEVAR' || ! self::applies($product)) {
+        // Icopor por unidad para PARA_LLEVAR y DOMICILIO; en MESA no se cobra.
+        if (! in_array($orderType, ['PARA_LLEVAR', 'DOMICILIO'], true) || ! self::applies($product)) {
             return 0;
         }
 

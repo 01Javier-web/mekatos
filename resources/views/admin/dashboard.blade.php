@@ -7,8 +7,8 @@
     <div class="stats-grid">
         <a class="stat-card" href="{{ route('admin.orders.index') }}"><span>Pedidos registrados</span><strong>{{ $ordersCount }}</strong><small>Histórico del sistema</small></a>
         <a class="stat-card stat-attention" href="{{ route('admin.orders.index', ['status' => 'PENDIENTE']) }}"><span>Pendientes de impresión</span><strong>{{ $pendingOrders }}</strong><small>Requieren atención de caja</small></a>
-        <a class="stat-card" href="{{ route('admin.orders.index', ['status' => 'EN PREPARACIÓN']) }}"><span>En preparación</span><strong>{{ $preparingOrders }}</strong><small>En proceso de preparación</small></a>
-        <a class="stat-card stat-ready" href="{{ route('admin.orders.index', ['status' => 'ENTREGADO']) }}"><span>Entregados</span><strong>{{ $deliveredOrders }}</strong><small>Pendientes de cobro</small></a>
+        <a class="stat-card" href="{{ route('admin.orders.index', ['status' => 'ENTREGADO']) }}"><span>Entregados</span><strong>{{ $deliveredOrders }}</strong><small>Comandas impresas</small></a>
+        <a class="stat-card stat-ready" href="{{ route('admin.orders.index', ['status' => 'POR COBRAR']) }}"><span>Por cobrar</span><strong>{{ $toCollectOrders }}</strong><small>Pendientes de cobro</small></a>
         <a class="stat-card" href="{{ route('admin.products.index') }}"><span>Productos activos</span><strong>{{ $productsCount }}</strong><small>Disponibles en menú</small></a>
         <a class="stat-card" href="{{ route('admin.categories.index') }}"><span>Categorías</span><strong>{{ $categoriesCount }}</strong><small>Organización del menú</small></a>
         <a class="stat-card" href="{{ route('admin.tables.index') }}"><span>Mesas</span><strong>{{ $tablesCount }}</strong><small>Gestiona estado y QR</small></a>
@@ -17,7 +17,7 @@
     <section class="panel dashboard-panel"><div class="panel-header order-filter-header"><div><h3>Pedidos recientes</h3><span>Los últimos pedidos registrados en el sistema.</span></div><a class="button button-small" href="{{ route('admin.orders.index') }}">Ver todos</a></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Pedido</th><th>Atención</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
         @forelse ($recentOrders as $order)
             @php $isTakeaway = $order->type?->value === 'PARA_LLEVAR'; @endphp
-            <tr><td><strong>#{{ $order->id }}</strong><small>{{ $order->created_at?->format('d/m/Y H:i') }}</small></td><td><span class="type-badge">{{ $isTakeaway ? '🥡 Para llevar' : '🪑 Mesa '.($order->tableSession?->restaurantTable?->number ?? '—') }}</span></td><td><span class="status status-order">{{ ($order->type === \App\Enums\OrderType::TABLE && $order->status === \App\Enums\OrderStatus::PREPARING ? 'ABIERTA' : $order->status->value) }}</span></td><td><strong>${{ number_format($order->total,0,',','.') }}</strong></td><td class="actions-cell"><a class="button button-small" href="{{ route('admin.orders.show',$order) }}">Ver detalle</a></td></tr>
+            <tr><td><strong>#{{ $order->id }}</strong><small>{{ $order->created_at?->format('d/m/Y H:i') }}</small></td><td><span class="type-badge">{{ $isTakeaway ? '🥡 Para llevar' : '🪑 Mesa '.($order->tableSession?->restaurantTable?->number ?? '—') }}</span></td><td><span class="status status-order">{{ $order->status->operational()->value }}</span></td><td><strong>${{ number_format($order->total,0,',','.') }}</strong></td><td class="actions-cell"><a class="button button-small" href="{{ route('admin.orders.show',$order) }}">Ver detalle</a></td></tr>
         @empty
             <tr><td colspan="5" class="empty-state"><h3>Aún no hay pedidos</h3><p>Los pedidos nuevos aparecerán aquí.</p><a class="button button-primary" href="{{ route('admin.orders.create') }}">Crear primer pedido</a></td></tr>
         @endforelse
