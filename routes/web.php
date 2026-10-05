@@ -45,10 +45,11 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('role:ADMIN')->group(function () {
         Route::get('/admin/orders/{order}/print', [PrintController::class, 'orderPack'])->name('admin.orders.print');
-        Route::get('/admin/orders/{order}/reprint', [PrintController::class, 'reprintOrder'])->name('admin.orders.reprint');
     });
 
     Route::middleware('role:ADMIN,MESERO')->group(function () {
+        // Reimpresión de solo lectura: no cambia estado, sent_at, rondas ni historial.
+        Route::get('/admin/orders/{order}/reprint', [PrintController::class, 'reprintOrder'])->name('admin.orders.reprint');
         Route::get('/admin/table-sessions/{tableSession}/account', [PrintController::class, 'account'])->name('admin.accounts.show');
         Route::get('/admin/table-sessions/{tableSession}/account/print', [PrintController::class, 'printAccount'])->name('admin.accounts.print');
         Route::post('/admin/table-sessions/{tableSession}/pay', [PrintController::class, 'payTableSession'])->name('admin.accounts.pay');

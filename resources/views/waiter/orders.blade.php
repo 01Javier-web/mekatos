@@ -31,6 +31,7 @@
                 <div class="waiter-items">@foreach ($order->orderItems as $item)<div><span><strong>{{ $item->quantity }}×</strong> {{ $item->product?->name ?? 'Producto' }}@if($item->notes)<small class="item-note-display">⚠ {{ $item->notes }}</small>@endif</span><strong>${{ number_format($item->total, 0, ',', '.') }}</strong></div>@endforeach</div>
                 @if((int)$order->packaging_fee > 0)<div class="waiter-packaging"><span>🥡 Icopores / empaque para llevar</span><strong>+${{ number_format($order->packaging_fee, 0, ',', '.') }}</strong></div>@endif<div class="waiter-total"><span>Total</span><strong>${{ number_format($order->total, 0, ',', '.') }}</strong></div>
                 <div class="waiter-card-actions">@if($canAdd)<a class="button" href="{{ route('admin.orders.add',$order) }}">＋ Agregar</a>@endif
+                    @if($order->orderItems->contains(fn ($item) => $item->sent_at !== null))<a class="button" target="_blank" rel="noopener" href="{{ route('admin.orders.reprint',$order) }}">🔁 Reimprimir última comanda</a>@endif
                     @if ($status === \App\Enums\OrderStatus::PENDING)
                         <span class="muted action-message">Esperando impresión en caja.</span>
                     @elseif ($status === \App\Enums\OrderStatus::PREPARING)
