@@ -45,6 +45,9 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::middleware('role:ADMIN')->group(function () {
         Route::get('/admin/orders/{order}/print', [PrintController::class, 'orderPack'])->name('admin.orders.print');
+        // Registrar pagos (cobrar y cerrar la cuenta de mesa, pagos de PARA_LLEVAR y DOMICILIO): solo caja/ADMIN.
+        Route::post('/admin/table-sessions/{tableSession}/pay', [PrintController::class, 'payTableSession'])->name('admin.accounts.pay');
+        Route::post('/admin/orders/{order}/pay', [PrintController::class, 'payOrder'])->name('admin.orders.pay');
     });
 
     Route::middleware('role:ADMIN,MESERO')->group(function () {
@@ -52,8 +55,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/admin/orders/{order}/reprint', [PrintController::class, 'reprintOrder'])->name('admin.orders.reprint');
         Route::get('/admin/table-sessions/{tableSession}/account', [PrintController::class, 'account'])->name('admin.accounts.show');
         Route::get('/admin/table-sessions/{tableSession}/account/print', [PrintController::class, 'printAccount'])->name('admin.accounts.print');
-        Route::post('/admin/table-sessions/{tableSession}/pay', [PrintController::class, 'payTableSession'])->name('admin.accounts.pay');
-        Route::post('/admin/orders/{order}/pay', [PrintController::class, 'payOrder'])->name('admin.orders.pay');
     });
 
     Route::middleware('role:ADMIN')->group(function () {

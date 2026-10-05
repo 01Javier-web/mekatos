@@ -45,7 +45,7 @@
             @else
                 <div class="account-actions">
                     <a class="button" target="_blank" rel="noopener" href="{{ route('admin.accounts.print',$tableSession) }}">🧾 Imprimir cuenta</a>
-                    <form method="POST" action="{{ route('admin.accounts.pay',$tableSession) }}" onsubmit="return confirm('¿Confirmas que la cuenta de la Mesa {{ $tableSession->restaurantTable?->number }} fue pagada?');">@csrf<button class="button button-primary" type="submit">💰 Registrar pago y terminar</button></form>
+                    @if(auth()->user()?->role === \App\UserRole::Admin)<form method="POST" action="{{ route('admin.accounts.pay',$tableSession) }}" onsubmit="return confirm('¿Confirmas que la cuenta de la Mesa {{ $tableSession->restaurantTable?->number }} fue pagada?');">@csrf<button class="button button-primary" type="submit">💰 Registrar pago y terminar</button></form>@endif
                 </div>
             @endif
         </div>

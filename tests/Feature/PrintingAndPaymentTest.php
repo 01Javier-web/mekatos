@@ -64,18 +64,20 @@ class PrintingAndPaymentTest extends TestCase
     public function test_table_account_accumulates_multiple_orders_and_payment_closes_session_and_frees_table(): void
     {
         $waiter = $this->waiter();
+        $admin = $this->admin();
         $food = $this->product('Producto de cuenta', 'Hamburguesas', 20000);
         $table = RestaurantTable::create(['number' => 12, 'capacity' => 4, 'qr_token' => 'account-test-12', 'status' => TableStatus::OCCUPIED]);
         $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
         $first = $this->order(OrderStatus::DELIVERED, $food, $session);
         $second = $this->order(OrderStatus::DELIVERED, $food, $session);
 
+        // El mesero ve e imprime la cuenta acumulada; el pago lo registra caja (ADMIN).
         $this->actingAs($waiter)->get(route('admin.accounts.show', $session))->assertOk()->assertSee('$40.000');
         $this->actingAs($waiter)->get(route('admin.accounts.print', $session))->assertOk()->assertSee('MESA 12')->assertSee('$40.000');
-        $this->actingAs($waiter)->post(route('admin.accounts.pay', $session))->assertRedirect(route('waiter.orders'));
+        $this->actingAs($admin)->post(route('admin.accounts.pay', $session))->assertRedirect(route('admin.orders.index'));
 
-        $this->assertDatabaseHas('orders', ['id' => $first->id, 'status' => OrderStatus::COMPLETED->value, 'paid_by_user_id' => $waiter->id]);
-        $this->assertDatabaseHas('orders', ['id' => $second->id, 'status' => OrderStatus::COMPLETED->value, 'paid_by_user_id' => $waiter->id]);
+        $this->assertDatabaseHas('orders', ['id' => $first->id, 'status' => OrderStatus::COMPLETED->value, 'paid_by_user_id' => $admin->id]);
+        $this->assertDatabaseHas('orders', ['id' => $second->id, 'status' => OrderStatus::COMPLETED->value, 'paid_by_user_id' => $admin->id]);
         $this->assertDatabaseHas('table_sessions', ['id' => $session->id, 'status' => TableSessionStatus::CLOSED->value]);
         $this->assertDatabaseHas('restaurant_tables', ['id' => $table->id, 'status' => TableStatus::AVAILABLE->value]);
     }
@@ -84,26 +86,26 @@ class PrintingAndPaymentTest extends TestCase
     {
         // Regla actual: la mesa se cobra sin marcar "entregado"; solo bloquean los pedidos
         // que todavía no se han enviado a cocina (PENDIENTE).
-        $waiter = $this->waiter();
+        $admin = $this->admin();
         $food = $this->product('Producto pendiente', 'Hamburguesas', 20000);
         $table = RestaurantTable::create(['number' => 13, 'capacity' => 4, 'qr_token' => 'account-test-13', 'status' => TableStatus::OCCUPIED]);
         $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
         $this->order(OrderStatus::PREPARING, $food, $session);
         $this->order(OrderStatus::PENDING, $food, $session);
 
-        $this->actingAs($waiter)->post(route('admin.accounts.pay', $session))->assertSessionHasErrors('status');
+        $this->actingAs($admin)->post(route('admin.accounts.pay', $session))->assertSessionHasErrors('status');
         $this->assertDatabaseHas('table_sessions', ['id' => $session->id, 'status' => TableSessionStatus::Active->value]);
     }
 
     public function test_table_account_can_be_paid_when_orders_are_preparing_without_manual_delivery(): void
     {
-        $waiter = $this->waiter();
+        $admin = $this->admin();
         $food = $this->product('Producto abierto', 'Hamburguesas', 20000);
         $table = RestaurantTable::create(['number' => 14, 'capacity' => 4, 'qr_token' => 'account-test-14', 'status' => TableStatus::OCCUPIED]);
         $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
         $order = $this->order(OrderStatus::PREPARING, $food, $session);
 
-        $this->actingAs($waiter)->post(route('admin.accounts.pay', $session))->assertRedirect(route('waiter.orders'));
+        $this->actingAs($admin)->post(route('admin.accounts.pay', $session))->assertRedirect(route('admin.orders.index'));
 
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => OrderStatus::COMPLETED->value]);
         $this->assertDatabaseHas('order_status_histories', [
