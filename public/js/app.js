@@ -18,9 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
         style.textContent = `
             .nav-pending-badge{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;margin-left:6px;border-radius:999px;background:#f6d96c;color:#5b4311;font-size:.68rem;font-weight:900;line-height:1;vertical-align:middle}
             .nav-pending-badge[hidden]{display:none}
-            .app-live-clock{display:inline-flex;align-items:center;gap:5px;margin-left:10px;padding:6px 9px;border:1px solid rgba(255,255,255,.25);border-radius:8px;color:#fff;font-size:.72rem;font-weight:750;white-space:nowrap}
-            .app-live-clock strong{color:#fff}
-            @media(max-width:760px){.app-live-clock{display:none}}
         `;
         document.head.appendChild(style);
 
@@ -65,36 +62,5 @@ document.addEventListener('DOMContentLoaded', () => {
             refreshPendingBadge();
             window.setInterval(refreshPendingBadge, 5000);
         }
-    }
-
-    const headerInner = document.querySelector('.header-inner');
-    if (headerInner && !document.getElementById('app-live-clock')) {
-        const clock = document.createElement('span');
-        clock.className = 'app-live-clock';
-        clock.id = 'app-live-clock';
-        clock.setAttribute('aria-label', 'Hora actual de Colombia');
-        // .user-menu está dentro de .main-nav (no es hijo directo de .header-inner),
-        // por eso se inserta en su contenedor real.
-        const userMenu = headerInner.querySelector('.user-menu');
-        if (userMenu && userMenu.parentNode) {
-            userMenu.parentNode.insertBefore(clock, userMenu);
-        } else {
-            headerInner.appendChild(clock);
-        }
-
-        const formatter = new Intl.DateTimeFormat('es-CO', {
-            timeZone: 'America/Bogota',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        });
-
-        const updateClock = () => {
-            clock.innerHTML = `🕐 <strong>${formatter.format(new Date())}</strong>`;
-        };
-
-        updateClock();
-        window.setInterval(updateClock, 1000);
     }
 });
