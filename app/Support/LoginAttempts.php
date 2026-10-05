@@ -10,16 +10,23 @@ use Illuminate\Support\Facades\Hash;
  * Verificación de credenciales con bloqueo por intentos fallidos.
  * La usan el login web y el de la API para que el bloqueo no pueda saltarse.
  *
- * - Cada contraseña incorrecta de un usuario existente suma 1 al contador.
- * - Al llegar a MAX_ATTEMPTS se guarda locked_at: el usuario queda bloqueado
- *   aunque después escriba la contraseña correcta.
- * - Un login correcto (activo y sin bloqueo) reinicia el contador a 0.
+ * - Cada contraseña incorrecta de un usuario existente suma 1 al contador, pero
+ *   solo dentro de una ventana de WINDOW_MINUTES desde el primer fallo de la serie.
+ *   Si la ventana ya venció, el fallo abre una ventana nueva y el contador vuelve a 1.
+ * - Al llegar a MAX_ATTEMPTS dentro de la ventana se guarda locked_at: el usuario
+ *   queda bloqueado aunque después escriba la contraseña correcta, hasta que un
+ *   ADMIN lo desbloquee o se use la recuperación de ADMIN.
+ * - Un login correcto (activo y sin bloqueo) reinicia el contador y la ventana.
  * - El bloqueo es independiente de is_active.
  * - Para correos inexistentes no se modifica nada y la respuesta es la misma.
  */
 class LoginAttempts
 {
     public const MAX_ATTEMPTS = 3;
+
+    public const WINDOW_MINUTES = 15;
+
+    public const THROTTLED_ERROR = 'Demasiados intentos de inicio de sesión. Espera un minuto e inténtalo de nuevo.';
 
     public const GENERIC_ERROR = 'No fue posible iniciar sesión. Verifica tus datos; si el problema continúa, comunícate con un administrador.';
 
@@ -54,16 +61,27 @@ class LoginAttempts
             return null;
         }
 
-        if ($user->failed_login_attempts !== 0) {
-            $user->forceFill(['failed_login_attempts' => 0])->save();
+        if ($user->failed_login_attempts === 0 && $user->failed_login_window_started_at === null) {
+            return $user;
         }
 
-        return $user;
+        // Reinicio atómico y condicionado a que siga sin bloqueo: si un intento
+        // fallido simultáneo acaba de bloquear la cuenta, este login no entra.
+        $reset = User::query()
+            ->whereKey($user->id)
+            ->whereNull('locked_at')
+            ->update(['failed_login_attempts' => 0, 'failed_login_window_started_at' => null]);
+
+        if ($reset === 0) {
+            return null;
+        }
+
+        return $user->refresh();
     }
 
     public static function unlock(User $user): void
     {
-        $user->forceFill(['failed_login_attempts' => 0, 'locked_at' => null])->save();
+        $user->forceFill(['failed_login_attempts' => 0, 'failed_login_window_started_at' => null, 'locked_at' => null])->save();
         AdminRecovery::invalidate($user);
     }
 
@@ -77,11 +95,23 @@ class LoginAttempts
                 return;
             }
 
-            $attempts = min($fresh->failed_login_attempts + 1, self::MAX_ATTEMPTS);
-            $data = ['failed_login_attempts' => $attempts];
+            $now = now();
+            $windowStart = $fresh->failed_login_window_started_at;
+
+            // Sin fallos previos, sin ventana registrada o con la ventana vencida
+            // (pasaron más de WINDOW_MINUTES desde su inicio): empieza una serie nueva.
+            $newWindow = $fresh->failed_login_attempts === 0
+                || $windowStart === null
+                || $windowStart->lt($now->copy()->subMinutes(self::WINDOW_MINUTES));
+
+            $attempts = $newWindow ? 1 : min($fresh->failed_login_attempts + 1, self::MAX_ATTEMPTS);
+            $data = [
+                'failed_login_attempts' => $attempts,
+                'failed_login_window_started_at' => $newWindow ? $now : $windowStart,
+            ];
 
             if ($attempts >= self::MAX_ATTEMPTS) {
-                $data['locked_at'] = now();
+                $data['locked_at'] = $now;
             }
 
             $fresh->forceFill($data)->save();

@@ -6,7 +6,9 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\RestaurantTable;
+use App\TableStatus;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -18,28 +20,41 @@ class SalesReportController extends Controller
         return $this->renderDailyReport();
     }
 
+    /**
+     * Cierre del día: muestra el reporte y reinicia la operación desde cero
+     * (regla de negocio de Mekatos: no se conserva un historial de ventas).
+     *
+     * Solo se permite si todos los pedidos están finalizados. Todo ocurre en una
+     * transacción y con las mesas, sesiones y pedidos bloqueados, para que ningún
+     * pedido se cree, cobre o modifique entre la comprobación y el borrado.
+     * El catálogo, los usuarios y la configuración no se tocan.
+     */
     public function closeDay(): View
     {
-        $this->ensureNoActiveOrders();
+        // attempts: si MySQL detecta un interbloqueo con una operación simultánea
+        // (por ejemplo, un cobro), la transacción se deshace y se reintenta.
+        $report = DB::transaction(function (): array {
+            // Mismo orden que los pedidos de mesa (mesa → sesión → pedido).
+            DB::table('restaurant_tables')->lockForUpdate()->pluck('id');
+            DB::table('table_sessions')->lockForUpdate()->pluck('id');
+            $orders = DB::table('orders')->lockForUpdate()->get(['id', 'status']);
 
-        $report = $this->buildDailyReport();
+            $this->ensureNoActiveOrders($orders);
 
-        DB::transaction(function (): void {
-            // Se vuelve a comprobar dentro de la transacción para no borrar
-            // un pedido creado mientras se generaba el reporte.
-            $this->ensureNoActiveOrders(lock: true);
+            // El reporte se arma con los datos ya bloqueados: refleja exactamente
+            // lo que se va a borrar.
+            $report = $this->buildDailyReport();
 
-            $orderIds = Order::query()->pluck('id');
-
-            if ($orderIds->isNotEmpty()) {
-                DB::table('order_status_histories')->whereIn('order_id', $orderIds)->delete();
-                DB::table('order_items')->whereIn('order_id', $orderIds)->delete();
-                Order::query()->whereIn('id', $orderIds)->delete();
-            }
-
+            // Hijos antes que padres para respetar las claves foráneas.
+            DB::table('order_status_histories')->delete();
+            DB::table('order_items')->delete();
+            DB::table('order_rounds')->delete();
+            DB::table('orders')->delete();
             DB::table('table_sessions')->delete();
-            RestaurantTable::query()->update(['status' => 'AVAILABLE']);
-        });
+            RestaurantTable::query()->update(['status' => TableStatus::AVAILABLE->value]);
+
+            return $report;
+        }, attempts: 3);
 
         // MySQL ejecuta ALTER TABLE como una operación que confirma la transacción
         // implícitamente, por eso el reinicio del autoincremento debe hacerse fuera
@@ -54,32 +69,38 @@ class SalesReportController extends Controller
     }
 
     /**
-     * Impide cerrar el día mientras exista algún pedido sin terminar.
-     * Los pedidos CANCELADO (estado heredado) no se consideran activos
-     * porque ya no pueden avanzar en el flujo operativo.
+     * Estados que ya no pueden avanzar en la operación. Cualquier otro estado,
+     * incluido uno vacío o desconocido (por ejemplo, valores antiguos), se trata
+     * como una operación abierta: es más seguro bloquear el cierre que borrarlo.
      */
-    private function ensureNoActiveOrders(bool $lock = false): void
+    private const FINALIZED_STATUSES = [
+        OrderStatus::COMPLETED->value,
+        OrderStatus::LEGACY_CANCELLED->value,
+    ];
+
+    /**
+     * Impide cerrar el día mientras exista algún pedido sin finalizar.
+     * Se lanza dentro de la transacción, así que no se borra nada.
+     */
+    private function ensureNoActiveOrders(Collection $orders): void
     {
-        $query = Order::query()->whereIn('status', [
-            OrderStatus::PENDING->value,
-            OrderStatus::PREPARING->value,
-            OrderStatus::DELIVERED->value,
-            OrderStatus::IN_TRANSIT->value,
+        $active = $orders
+            ->reject(fn ($order): bool => in_array($order->status, self::FINALIZED_STATUSES, true))
+            ->sortBy('id')
+            ->values();
+
+        if ($active->isEmpty()) {
+            return;
+        }
+
+        $count = $active->count();
+        $list = $active->map(fn ($order): string => '#'.$order->id.' ('.($order->status ?: 'sin estado').')')->implode(', ');
+
+        throw ValidationException::withMessages([
+            'close' => [
+                "No se puede cerrar el día: hay {$count} ".($count === 1 ? 'pedido que todavía no está TERMINADO' : 'pedidos que todavía no están TERMINADOS')." ({$list}). Finaliza primero esos pedidos (cobrar mesas, para llevar y domicilios). No se eliminó ningún registro.",
+            ],
         ]);
-
-        if ($lock) {
-            $query->lockForUpdate();
-        }
-
-        $activeOrders = $query->count();
-
-        if ($activeOrders > 0) {
-            throw ValidationException::withMessages([
-                'close' => [
-                    "No se puede cerrar el día: hay {$activeOrders} ".($activeOrders === 1 ? 'pedido que todavía no está TERMINADO' : 'pedidos que todavía no están TERMINADOS').'. Finaliza primero los pedidos pendientes (cobrar mesas, para llevar y domicilios). No se eliminó ningún registro.',
-                ],
-            ]);
-        }
     }
 
     private function renderDailyReport(): View

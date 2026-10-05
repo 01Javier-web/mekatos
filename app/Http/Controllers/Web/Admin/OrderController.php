@@ -14,6 +14,7 @@ use App\Models\TableSession;
 use App\Support\BeverageOptions;
 use App\Support\ComboOptions;
 use App\Support\JuiceOptions;
+use App\Support\TableSessionLock;
 use App\Support\TakeawayPackaging;
 use App\TableSessionStatus;
 use App\TableStatus;
@@ -81,7 +82,9 @@ class OrderController extends Controller
             if($type===OrderType::TABLE){
                 $table=RestaurantTable::query()->lockForUpdate()->findOrFail($v['table_id']);
                 if($table->status===TableStatus::CLEANING)throw ValidationException::withMessages(['table_id'=>['La mesa seleccionada no está disponible para recibir pedidos.']]);
-                $session=TableSession::query()->where('restaurant_table_id',$table->id)->where('status',TableSessionStatus::Active->value)->latest('id')->first();
+                // Orden de bloqueo mesa → sesión (ver TableSessionLock): si la cuenta se
+                // está cobrando, se espera a que termine y, si quedó cerrada, se abre otra.
+                $session=TableSessionLock::lockActiveSessionOf($table);
                 if(!$session)$session=TableSession::create(['restaurant_table_id'=>$table->id,'status'=>TableSessionStatus::Active,'started_at'=>now()]);
                 $table->update(['status'=>TableStatus::OCCUPIED]);
             }
@@ -204,7 +207,24 @@ class OrderController extends Controller
         )->validate()['items'];
 
         DB::transaction(function () use ($v, $order): void {
+            // Mismo orden de bloqueo que el cobro de la mesa (mesa → sesión → pedido).
+            // Las condiciones se vuelven a comprobar con las filas bloqueadas: la cuenta
+            // pudo cobrarse entre que se abrió el formulario y se envió la adición.
+            $lockedSession = $order->type === OrderType::TABLE && $order->table_session_id
+                ? TableSessionLock::lockSession($order->table_session_id)
+                : null;
+
             $order = Order::query()->lockForUpdate()->with('orderItems')->findOrFail($order->id);
+
+            if ($order->type === OrderType::TABLE) {
+                if (! TableSessionLock::isActive($lockedSession)) {
+                    throw ValidationException::withMessages(['order' => [TableSessionLock::SESSION_CLOSED]]);
+                }
+
+                $order->setRelation('tableSession', $lockedSession);
+            }
+
+            $this->ensureAdditionAllowed($order);
 
             $nextRound = ((int) $order->rounds()->max('number')) + 1;
             $round = $order->rounds()->create([

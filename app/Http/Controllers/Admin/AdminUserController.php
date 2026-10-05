@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use Illuminate\Database\QueryException;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\AdminAccountGuard;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -100,7 +101,8 @@ class AdminUserController extends Controller
             ],
         ]);
 
-        $user->update($validated);
+        // Misma regla que la web: no desactivarse/degradarse ni dejar el sistema sin ADMIN activo.
+        AdminAccountGuard::update($request->user(), $user, $validated);
 
         return response()->json([
             'message' => 'Usuario actualizado exitosamente',
@@ -109,10 +111,11 @@ class AdminUserController extends Controller
     }
 
     // Eliminar un usuario
-    public function destroy(User $user): JsonResponse
+    public function destroy(Request $request, User $user): JsonResponse
     {
         try {
-            $user->delete();
+            // Misma regla que la web: no eliminarse a sí mismo ni al último ADMIN activo.
+            AdminAccountGuard::delete($request->user(), $user, fn () => $user->delete());
         } catch (QueryException $e) {
             // 23000: restricción de integridad (el registro está en uso por otros datos).
             if ($e->getCode() !== '23000') {

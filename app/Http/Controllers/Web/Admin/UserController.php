@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\AdminAccountGuard;
 use App\Support\LoginAttempts;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
@@ -29,7 +30,8 @@ class UserController extends Controller
         $validated = $request->validate(['name'=>['required','string','max:255'],'email'=>['required','email',Rule::unique('users','email')->ignore($user->id)],'password'=>['nullable','string','min:8'],'role'=>['required',Rule::enum(UserRole::class)],'is_active'=>['sometimes','boolean']]);
         $data=['name'=>$validated['name'],'email'=>$validated['email'],'role'=>$validated['role'],'is_active'=>$request->boolean('is_active')];
         if (!empty($validated['password'])) $data['password']=Hash::make($validated['password']);
-        $user->update($data);
+        // Impide desactivarse/degradarse a sí mismo y dejar el sistema sin ADMIN activo.
+        AdminAccountGuard::update($request->user(), $user, $data);
         return redirect()->route('admin.users.index')->with('success','Usuario actualizado exitosamente.');
     }
     /**
@@ -49,8 +51,8 @@ class UserController extends Controller
 
     public function destroy(Request $request, User $user): RedirectResponse
     {
-        if ($user->id === $request->user()->id) return back()->withErrors(['user'=>'No puedes eliminar tu propio usuario.']);
-        DB::transaction(function () use ($user): void {
+        // Impide eliminarse a sí mismo y eliminar al último ADMIN activo.
+        AdminAccountGuard::delete($request->user(), $user, function () use ($user): void {
             DB::table('orders')->where('handled_by_user_id',$user->id)->update(['handled_by_user_id'=>null]);
             DB::table('orders')->where('delivered_by_user_id',$user->id)->update(['delivered_by_user_id'=>null]);
             DB::table('orders')->where('paid_by_user_id',$user->id)->update(['paid_by_user_id'=>null]);

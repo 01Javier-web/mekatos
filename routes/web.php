@@ -18,7 +18,7 @@ use App\Http\Controllers\Web\Admin\BeverageOptionController;
 
 Route::get('/', fn () => redirect()->route('login'));
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login'])->name('login.store');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login')->name('login.store');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 Route::get('/mesa/{token}', [ClientController::class, 'table'])->name('client.table');
 

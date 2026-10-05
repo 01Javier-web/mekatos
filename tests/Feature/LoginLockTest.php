@@ -90,6 +90,264 @@ class LoginLockTest extends TestCase
         $this->assertGuest();
     }
 
+    // --- Ventana de 15 minutos ---
+
+    public function test_window_starts_on_first_failure_and_is_kept_by_the_next_ones(): void
+    {
+        $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
+        $this->freezeSecond();
+
+        $this->webLogin($waiter->email, 'mala-1');
+        $start = $waiter->fresh()->failed_login_window_started_at;
+        $this->assertNotNull($start);
+        $this->assertSame(1, $waiter->fresh()->failed_login_attempts);
+
+        $this->travel(5)->minutes();
+        $this->webLogin($waiter->email, 'mala-2');
+        $this->assertSame(2, $waiter->fresh()->failed_login_attempts);
+        $this->assertTrue($start->equalTo($waiter->fresh()->failed_login_window_started_at), 'La ventana no se desplaza con cada fallo.');
+
+        $this->travel(5)->minutes();
+        $this->webLogin($waiter->email, 'mala-3');
+        $this->assertSame(3, $waiter->fresh()->failed_login_attempts);
+        $this->assertNotNull($waiter->fresh()->locked_at);
+    }
+
+    public function test_third_failure_exactly_at_15_minutes_still_locks(): void
+    {
+        $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
+        $this->freezeSecond();
+
+        $this->webLogin($waiter->email, 'mala-1');
+        $this->webLogin($waiter->email, 'mala-2');
+        $this->travel(LoginAttempts::WINDOW_MINUTES)->minutes();
+        $this->webLogin($waiter->email, 'mala-3');
+
+        $this->assertNotNull($waiter->fresh()->locked_at);
+    }
+
+    public function test_three_failures_spread_over_more_than_15_minutes_do_not_lock(): void
+    {
+        $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
+
+        $this->webLogin($waiter->email, 'mala-1');
+        $this->travel(16)->minutes();
+        $this->webLogin($waiter->email, 'mala-2');
+        $this->travel(16)->minutes();
+        $this->webLogin($waiter->email, 'mala-3');
+
+        $this->assertSame(1, $waiter->fresh()->failed_login_attempts);
+        $this->assertNull($waiter->fresh()->locked_at);
+        $this->webLogin($waiter->email, 'clave-correcta-1')->assertRedirect(route('waiter.orders'));
+        $this->assertAuthenticatedAs($waiter);
+    }
+
+    public function test_window_counts_from_its_first_failure_not_from_the_last_one(): void
+    {
+        // Fallos a los 0, 10 y 20 minutos: el tercero ya está fuera de la ventana
+        // abierta a los 0 minutos, así que empieza una serie nueva y no bloquea.
+        $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
+
+        $this->webLogin($waiter->email, 'mala-1');
+        $this->travel(10)->minutes();
+        $this->webLogin($waiter->email, 'mala-2');
+        $this->assertSame(2, $waiter->fresh()->failed_login_attempts);
+
+        $this->travel(10)->minutes();
+        $this->webLogin($waiter->email, 'mala-3');
+
+        $this->assertSame(1, $waiter->fresh()->failed_login_attempts);
+        $this->assertNull($waiter->fresh()->locked_at);
+    }
+
+    public function test_after_window_expires_a_new_failure_starts_again_from_one(): void
+    {
+        $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
+
+        $this->webLogin($waiter->email, 'mala-1');
+        $this->webLogin($waiter->email, 'mala-2');
+        $oldStart = $waiter->fresh()->failed_login_window_started_at;
+
+        $this->travel(16)->minutes();
+        $this->freezeSecond();
+        $this->webLogin($waiter->email, 'mala-3');
+
+        $fresh = $waiter->fresh();
+        $this->assertSame(1, $fresh->failed_login_attempts);
+        $this->assertNull($fresh->locked_at);
+        $this->assertTrue($fresh->failed_login_window_started_at->greaterThan($oldStart));
+        $this->assertTrue($fresh->failed_login_window_started_at->equalTo(now()));
+
+        // La nueva ventana vuelve a bloquear al tercer fallo.
+        $this->webLogin($waiter->email, 'mala-4');
+        $this->webLogin($waiter->email, 'mala-5');
+        $this->assertNotNull($waiter->fresh()->locked_at);
+    }
+
+    public function test_successful_login_resets_counter_and_window(): void
+    {
+        $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
+
+        $this->webLogin($waiter->email, 'mala-1');
+        $this->webLogin($waiter->email, 'mala-2');
+        $this->webLogin($waiter->email, 'clave-correcta-1')->assertRedirect(route('waiter.orders'));
+
+        $fresh = $waiter->fresh();
+        $this->assertSame(0, $fresh->failed_login_attempts);
+        $this->assertNull($fresh->failed_login_window_started_at);
+
+        // Tras el login correcto hacen falta otros 3 fallos para bloquear.
+        $this->post(route('logout'));
+        $this->webLogin($waiter->email, 'mala-3');
+        $this->webLogin($waiter->email, 'mala-4');
+        $this->assertSame(2, $waiter->fresh()->failed_login_attempts);
+        $this->assertNull($waiter->fresh()->locked_at);
+    }
+
+    public function test_locked_account_stays_locked_after_the_window_expires(): void
+    {
+        $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
+        $this->lock($waiter);
+
+        $this->travel(2)->hours();
+
+        $this->webLogin($waiter->email, 'clave-correcta-1')
+            ->assertSessionHasErrors(['email' => LoginAttempts::GENERIC_ERROR]);
+        $this->webLogin($waiter->email, 'mala')->assertSessionHasErrors(['email' => LoginAttempts::GENERIC_ERROR]);
+        $this->assertGuest();
+        $this->assertNotNull($waiter->fresh()->locked_at);
+        $this->assertSame(3, $waiter->fresh()->failed_login_attempts);
+    }
+
+    public function test_unlock_clears_counter_and_window(): void
+    {
+        $admin = $this->user(UserRole::Admin, 'admin@mekatos.co');
+        $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
+        $this->lock($waiter);
+
+        $this->actingAs($admin)->post(route('admin.users.unlock', $waiter))->assertRedirect(route('admin.users.index'));
+        $this->post(route('logout'));
+
+        $fresh = $waiter->fresh();
+        $this->assertNull($fresh->locked_at);
+        $this->assertSame(0, $fresh->failed_login_attempts);
+        $this->assertNull($fresh->failed_login_window_started_at);
+
+        $this->webLogin($waiter->email, 'mala');
+        $this->assertSame(1, $waiter->fresh()->failed_login_attempts);
+        $this->assertNull($waiter->fresh()->locked_at);
+    }
+
+    public function test_admin_and_waiter_follow_the_same_counter_and_window(): void
+    {
+        $this->user(UserRole::Admin, 'otro-admin@mekatos.co');
+
+        foreach ([UserRole::Admin, UserRole::Waiter] as $role) {
+            $user = $this->user($role, strtolower($role->value).'@mekatos.co');
+
+            $this->webLogin($user->email, 'mala-1');
+            $this->webLogin($user->email, 'mala-2');
+            $this->assertSame(2, $user->fresh()->failed_login_attempts, $role->value);
+
+            $this->travel(16)->minutes();
+            $this->webLogin($user->email, 'mala-3');
+            $this->assertSame(1, $user->fresh()->failed_login_attempts, $role->value);
+            $this->assertNull($user->fresh()->locked_at, $role->value);
+
+            $this->webLogin($user->email, 'mala-4');
+            $this->webLogin($user->email, 'mala-5');
+            $this->assertNotNull($user->fresh()->locked_at, $role->value);
+
+            $this->webLogin($user->email, 'clave-correcta-1')->assertSessionHasErrors(['email' => LoginAttempts::GENERIC_ERROR]);
+            $this->assertGuest();
+        }
+    }
+
+    public function test_api_failures_use_the_same_window(): void
+    {
+        $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
+
+        $this->postJson('/api/login', ['email' => $waiter->email, 'password' => 'mala'])->assertUnauthorized();
+        $this->postJson('/api/login', ['email' => $waiter->email, 'password' => 'mala'])->assertUnauthorized();
+        $this->travel(16)->minutes();
+        $this->postJson('/api/login', ['email' => $waiter->email, 'password' => 'mala'])->assertUnauthorized();
+
+        $this->assertSame(1, $waiter->fresh()->failed_login_attempts);
+        $this->assertNull($waiter->fresh()->locked_at);
+    }
+
+    // --- Límite de peticiones del login web (independiente del bloqueo por cuenta) ---
+
+    public function test_web_login_is_rate_limited_per_email(): void
+    {
+        foreach (range(1, 5) as $i) {
+            $this->webLogin('no-existe@mekatos.co', 'mala')->assertSessionHasErrors(['email' => LoginAttempts::GENERIC_ERROR]);
+        }
+
+        $this->webLogin('no-existe@mekatos.co', 'mala')
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors(['email' => LoginAttempts::THROTTLED_ERROR]);
+
+        // Otro correo desde la misma IP todavía puede intentarlo.
+        $this->webLogin('otro@mekatos.co', 'mala')->assertSessionHasErrors(['email' => LoginAttempts::GENERIC_ERROR]);
+
+        // Pasado el minuto se puede volver a intentar.
+        $this->travel(61)->seconds();
+        $this->webLogin('no-existe@mekatos.co', 'mala')->assertSessionHasErrors(['email' => LoginAttempts::GENERIC_ERROR]);
+    }
+
+    public function test_web_login_is_rate_limited_per_ip_and_throttled_requests_do_not_touch_accounts(): void
+    {
+        $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
+
+        foreach (range(1, 20) as $i) {
+            $this->webLogin("intruso{$i}@mekatos.co", 'mala');
+        }
+
+        // La IP superó el límite: la petición no llega al controlador, así que
+        // ni inicia sesión ni suma fallos a la cuenta.
+        $this->webLogin($waiter->email, 'mala')->assertSessionHasErrors(['email' => LoginAttempts::THROTTLED_ERROR]);
+        $this->webLogin($waiter->email, 'clave-correcta-1')->assertSessionHasErrors(['email' => LoginAttempts::THROTTLED_ERROR]);
+        $this->assertGuest();
+        $this->assertSame(0, $waiter->fresh()->failed_login_attempts);
+
+        // Desde otra IP la cuenta funciona con normalidad.
+        $this->withServerVariables(['REMOTE_ADDR' => '10.20.30.40']);
+        $this->webLogin($waiter->email, 'clave-correcta-1')->assertRedirect(route('waiter.orders'));
+        $this->assertAuthenticatedAs($waiter);
+    }
+
+    public function test_rate_limit_does_not_affect_normal_logins_from_the_same_place(): void
+    {
+        // Inicio de turno: varios meseros entran desde la misma IP del local,
+        // alguno se equivoca una vez, y todos consiguen entrar.
+        foreach (range(1, 8) as $i) {
+            $waiter = $this->user(UserRole::Waiter, "mesero{$i}@mekatos.co");
+
+            if ($i % 2 === 0) {
+                $this->webLogin($waiter->email, 'me-equivoque')->assertSessionHasErrors(['email' => LoginAttempts::GENERIC_ERROR]);
+            }
+
+            $this->webLogin($waiter->email, 'clave-correcta-1')->assertRedirect(route('waiter.orders'));
+            $this->assertAuthenticatedAs($waiter);
+            $this->post(route('logout'));
+        }
+    }
+
+    public function test_api_keeps_its_own_rate_limit_and_the_account_lock(): void
+    {
+        $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
+
+        foreach (range(1, 10) as $i) {
+            $this->postJson('/api/login', ['email' => "otro{$i}@mekatos.co", 'password' => 'mala'])->assertUnauthorized();
+        }
+
+        $this->postJson('/api/login', ['email' => $waiter->email, 'password' => 'clave-correcta-1'])->assertStatus(429);
+
+        // El límite de la web es independiente: la web sigue respondiendo.
+        $this->webLogin($waiter->email, 'clave-correcta-1')->assertRedirect(route('waiter.orders'));
+    }
+
     public function test_correct_password_after_lock_is_rejected(): void
     {
         $waiter = $this->user(UserRole::Waiter, 'mesero@mekatos.co');
@@ -382,6 +640,76 @@ class LoginLockTest extends TestCase
 
         $this->assertDatabaseCount('password_reset_tokens', 0);
         $this->get($url)->assertSee('no es válido');
+    }
+
+    // --- El enlace de recuperación no depende del host de la petición ---
+
+    public function test_malicious_forwarded_host_does_not_change_recovery_link_domain(): void
+    {
+        config(['app.url' => 'https://mekatos.example.com']);
+        $admin = $this->user(UserRole::Admin, 'admin@mekatos.co');
+
+        $this->withServerVariables([
+            'REMOTE_ADDR' => '10.0.0.7',
+            'HTTP_X_FORWARDED_HOST' => 'atacante.example.net',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+        ]);
+        $this->lock($admin);
+
+        $url = $this->recoveryUrl();
+
+        $this->assertStringStartsWith('https://mekatos.example.com/recuperar-admin/', $url);
+        $this->assertStringNotContainsString('atacante', $url);
+    }
+
+    public function test_spoofed_host_header_does_not_change_recovery_link_domain(): void
+    {
+        config(['app.url' => 'https://mekatos.example.com']);
+        $admin = $this->user(UserRole::Admin, 'admin@mekatos.co');
+
+        foreach (range(1, 3) as $i) {
+            $this->from('http://atacante.example.net/login')
+                ->post('http://atacante.example.net/login', ['email' => $admin->email, 'password' => 'clave-incorrecta']);
+        }
+
+        $url = $this->recoveryUrl();
+
+        $this->assertSame('mekatos.example.com', parse_url($url, PHP_URL_HOST));
+        $this->assertStringNotContainsString('atacante', $url);
+    }
+
+    public function test_recovery_link_from_app_url_still_unlocks_the_admin(): void
+    {
+        config(['app.url' => 'https://mekatos.example.com/']);
+        $admin = $this->user(UserRole::Admin, 'admin@mekatos.co');
+        $this->lock($admin);
+
+        $url = $this->recoveryUrl();
+        $this->assertStringStartsWith('https://mekatos.example.com/recuperar-admin/', $url);
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $this->assertSame('admin@mekatos.co', $query['email'] ?? null);
+
+        $this->get($url)->assertOk()->assertSee('Contraseña nueva');
+        $this->post(route('admin.recovery.update'), [
+            'token' => $this->tokenFrom($url),
+            'email' => $admin->email,
+            'password' => 'otra-clave-segura-1',
+            'password_confirmation' => 'otra-clave-segura-1',
+        ])->assertRedirect(route('login'));
+
+        $this->assertNull($admin->fresh()->locked_at);
+    }
+
+    public function test_missing_app_url_sends_nothing_and_stores_no_token(): void
+    {
+        config(['app.url' => '']);
+        $admin = $this->user(UserRole::Admin, 'admin@mekatos.co');
+
+        $this->lock($admin);
+
+        $this->assertNotNull($admin->fresh()->locked_at);
+        Notification::assertNothingSent();
+        $this->assertDatabaseCount('password_reset_tokens', 0);
     }
 
     public function test_missing_recovery_email_sends_nothing_and_stores_no_token(): void

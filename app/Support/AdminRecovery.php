@@ -73,12 +73,20 @@ class AdminRecovery
             return false;
         }
 
+        $baseUrl = rtrim(trim((string) config('app.url')), '/');
+
+        if ($baseUrl === '') {
+            Log::warning('Recuperación de ADMIN no enviada: APP_URL no está configurado.', ['user_id' => $user->id]);
+
+            return false;
+        }
+
         $token = self::broker()->createToken($user);
 
         try {
             Notification::route('mail', $recipient)->notify(new AdminRecoveryNotification(
                 adminEmail: $user->email,
-                url: route('admin.recovery.show', ['token' => $token, 'email' => $user->email]),
+                url: self::recoveryUrl($baseUrl, $token, $user->email),
                 expiresInMinutes: self::expiresInMinutes(),
             ));
         } catch (Throwable $e) {
@@ -90,6 +98,16 @@ class AdminRecovery
         }
 
         return true;
+    }
+
+    /**
+     * El enlace se arma sobre APP_URL y nunca sobre el host de la petición:
+     * el cliente controla Host y X-Forwarded-Host, y podría hacer que el correo
+     * legítimo apunte (con un token válido) a un dominio suyo.
+     */
+    private static function recoveryUrl(string $baseUrl, string $token, string $email): string
+    {
+        return $baseUrl.route('admin.recovery.show', ['token' => $token, 'email' => $email], false);
     }
 
     public static function invalidate(User $user): void

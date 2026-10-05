@@ -33,6 +33,7 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'role' => UserRole::class, 
             'failed_login_attempts' => 'integer',
+            'failed_login_window_started_at' => 'datetime',
             'locked_at' => 'datetime',
         ];
     }

@@ -7,10 +7,10 @@ use App\Enums\OrderType;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\RestaurantTable;
-use App\Models\TableSession;
 use App\Support\BeverageOptions;
 use App\Support\ComboOptions;
 use App\Support\JuiceOptions;
+use App\Support\TableSessionLock;
 use App\Support\TakeawayPackaging;
 use App\TableSessionStatus;
 use App\TableStatus;
@@ -76,23 +76,23 @@ class OrderController extends Controller
             ])->validate();
         }
 
-        if ($tableSessionId) {
-            $session = TableSession::query()->with('restaurantTable')->findOrFail($tableSessionId);
-            if ($session->status !== TableSessionStatus::Active) {
-                throw ValidationException::withMessages(['table_session_id' => ['La sesión de la mesa no está activa.']]);
-            }
-            if ($tableToken && (! $session->restaurantTable || $session->restaurantTable->qr_token !== $tableToken)) {
-                throw ValidationException::withMessages(['table_token' => ['La mesa no coincide con la sesión indicada.']]);
-            }
-        }
-
         $order = DB::transaction(function () use ($validatedData, $type, $tableSessionId, $tableToken) {
-            // La sesión de mesa y la ocupación se crean dentro de la misma transacción
-            // que el pedido: si algo falla, no queda una mesa ocupada sin pedido.
-            if ($type === OrderType::TABLE && ! $tableSessionId) {
+            // La sesión de mesa y la ocupación se resuelven dentro de la misma transacción
+            // que el pedido, con la mesa y la sesión bloqueadas (orden mesa → sesión, ver
+            // TableSessionLock): el cobro de la mesa no puede cerrar la sesión mientras
+            // se crea el pedido, y si algo falla no queda una mesa ocupada sin pedido.
+            if ($type === OrderType::TABLE && $tableSessionId) {
+                $session = TableSessionLock::lockSession($tableSessionId);
+                if (! TableSessionLock::isActive($session)) {
+                    throw ValidationException::withMessages(['table_session_id' => [TableSessionLock::SESSION_CLOSED]]);
+                }
+                if (! $session->restaurantTable || $session->restaurantTable->qr_token !== $tableToken) {
+                    throw ValidationException::withMessages(['table_token' => ['La mesa no coincide con la sesión indicada.']]);
+                }
+            } elseif ($type === OrderType::TABLE) {
                 $table = RestaurantTable::query()->where('qr_token', $tableToken)->lockForUpdate()->first();
                 if (! $table) throw ValidationException::withMessages(['table_token' => ['La mesa indicada no existe.']]);
-                $session = $table->tableSessions()->where('status', TableSessionStatus::Active)->first();
+                $session = TableSessionLock::lockActiveSessionOf($table);
                 if (! $session) $session = $table->tableSessions()->create(['status' => TableSessionStatus::Active, 'started_at' => now()]);
                 $tableSessionId = $session->id;
                 $table->update(['status' => TableStatus::OCCUPIED]);

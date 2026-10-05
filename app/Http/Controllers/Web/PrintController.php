@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\TableSession;
+use App\Support\TableSessionLock;
 use App\TableSessionStatus;
 use App\TableStatus;
 use Illuminate\Http\RedirectResponse;
@@ -236,12 +237,11 @@ class PrintController extends Controller
     public function payTableSession(TableSession $tableSession): RedirectResponse
     {
         DB::transaction(function () use ($tableSession): void {
-            $session = TableSession::query()
-                ->lockForUpdate()
-                ->with('restaurantTable')
-                ->findOrFail($tableSession->id);
+            // Orden de bloqueo mesa → sesión → pedidos (ver TableSessionLock), el mismo
+            // que usan crear pedidos de mesa, agregar productos y el cierre del día.
+            $session = TableSessionLock::lockSession($tableSession->id);
 
-            if ($session->status !== TableSessionStatus::Active) {
+            if (! $session || $session->status !== TableSessionStatus::Active) {
                 throw ValidationException::withMessages([
                     'table' => ['La cuenta de esta mesa ya está cerrada.'],
                 ]);

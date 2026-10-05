@@ -405,4 +405,18 @@ class AuditStageOneTest extends TestCase
             ->assertSee('https://mekatos.example.com/css/app.css', false)
             ->assertDontSee('http://mekatos.example.com/css/app.css', false);
     }
+
+    public function test_forwarded_host_from_the_client_is_ignored(): void
+    {
+        $response = $this->withServerVariables([
+            'REMOTE_ADDR' => '10.0.0.7',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+            'HTTP_X_FORWARDED_PORT' => '443',
+            'HTTP_X_FORWARDED_HOST' => 'atacante.example.net',
+        ])->get('http://mekatos.example.com/login');
+
+        $response->assertOk()
+            ->assertSee('https://mekatos.example.com/css/app.css', false)
+            ->assertDontSee('atacante.example.net', false);
+    }
 }
