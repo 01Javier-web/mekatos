@@ -11,6 +11,7 @@ class Product extends Model
     protected $casts = [
         'is_available' => 'boolean',
         'is_portion' => 'boolean',
+        'allows_sauces' => 'boolean',
     ];
 
     protected $fillable = [
@@ -21,6 +22,7 @@ class Product extends Model
         'image_path',
         'is_available',
         'is_portion',
+        'allows_sauces',
     ];
 
     public function category(): BelongsTo

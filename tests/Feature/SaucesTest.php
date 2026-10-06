@@ -50,8 +50,8 @@ class SaucesTest extends TestCase
         $perros = Category::create(['name' => 'Perros', 'description' => null, 'sort_order' => 1, 'is_active' => true]);
         $salchis = Category::create(['name' => 'Salchipapas', 'description' => null, 'sort_order' => 2, 'is_active' => true]);
         $granizadas = Category::create(['name' => 'Granizadas', 'description' => null, 'sort_order' => 3, 'is_active' => true]);
-        $this->perro = Product::create(['category_id' => $perros->id, 'name' => 'Perro Sencillo', 'description' => null, 'price' => 12000, 'is_available' => true]);
-        $this->salchipapas = Product::create(['category_id' => $salchis->id, 'name' => 'Salchipapa Sencilla', 'description' => null, 'price' => 15000, 'is_available' => true]);
+        $this->perro = Product::create(['category_id' => $perros->id, 'name' => 'Perro Sencillo', 'description' => null, 'price' => 12000, 'is_available' => true, 'allows_sauces' => true]);
+        $this->salchipapas = Product::create(['category_id' => $salchis->id, 'name' => 'Salchipapa Sencilla', 'description' => null, 'price' => 15000, 'is_available' => true, 'allows_sauces' => true]);
         $this->granizado = Product::create(['category_id' => $granizadas->id, 'name' => 'Granizada de Mora', 'description' => null, 'price' => 8000, 'is_available' => true]);
     }
 
@@ -351,13 +351,13 @@ class SaucesTest extends TestCase
 
         $this->actingAs($this->admin)->get(route('admin.orders.add', $order))->assertOk()->assertSee('Agregar salsas');
         $this->actingAs($this->waiter)->post(route('admin.orders.add.store', $order), [
-            'items' => [$this->granizado->id => 1],
-            'sauces' => [$this->granizado->id => [$this->sauce('Miel')->id => 'APARTE']],
+            'items' => [$this->salchipapas->id => 1, $this->granizado->id => 1],
+            'sauces' => [$this->salchipapas->id => [$this->sauce('Miel')->id => 'APARTE']],
             'general_sauces' => [$this->sauce('Mayonesa')->id],
         ])->assertSessionHasNoErrors();
 
         $roundTwo = $order->rounds()->where('number', 2)->value('id');
-        $this->assertSame([['Granizada de Mora', 'Miel', 'APARTE'], ['GENERAL', 'Mayonesa', 'APARTE']],
+        $this->assertSame([['Salchipapa Sencilla', 'Miel', 'APARTE'], ['GENERAL', 'Mayonesa', 'APARTE']],
             collect($this->savedSauces($order))->slice(5)->values()->all());
         $this->assertSame(2, OrderSauce::where('order_round_id', $roundTwo)->count());
 

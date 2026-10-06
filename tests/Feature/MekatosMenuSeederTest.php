@@ -35,4 +35,20 @@ class MekatosMenuSeederTest extends TestCase
         $this->assertDatabaseMissing('products', ['name' => 'Jugo Natural Jarra - En Agua']);
         $this->assertDatabaseMissing('products', ['name' => 'Jugo Natural Jarra - En Leche']);
     }
+
+    public function test_seeder_sets_allows_sauces_for_food_but_not_for_beverages(): void
+    {
+        $this->seed(MekatosMenuSeeder::class);
+
+        foreach (['Perro Sencillo', 'Salchipapa', 'Ensalada César', 'Alitas BBQ'] as $food) {
+            $this->assertDatabaseHas('products', ['name' => $food, 'allows_sauces' => 1]);
+        }
+        foreach (['Jugo Natural Jarra', 'Limonada Jarra', 'Gaseosa 350 ml', 'Cerveza', 'Granizada de Mora', 'Cerezada'] as $beverage) {
+            $this->assertDatabaseHas('products', ['name' => $beverage, 'allows_sauces' => 0]);
+        }
+
+        $beverageCategories = Category::whereIn('name', ['Jugos y Bebidas Preparadas', 'Gaseosas y Agua', 'Cerveza', 'Granizadas'])->pluck('id');
+        $this->assertSame(0, Product::whereIn('category_id', $beverageCategories)->where('allows_sauces', true)->count());
+        $this->assertSame(0, Product::whereNotIn('category_id', $beverageCategories)->where('allows_sauces', false)->count());
+    }
 }

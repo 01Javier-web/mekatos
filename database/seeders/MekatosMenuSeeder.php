@@ -108,21 +108,21 @@ class MekatosMenuSeeder extends Seeder
             ['name' => 'Ensaladas', 'description' => 'Ensaladas.', 'sort_order' => 15, 'products' => [
                 ['name' => 'Ensalada César', 'price' => 34000, 'description' => 'Lechuga, pollo, crotones de pan, salsa César, queso parmesano.'],
             ]],
-            ['name' => 'Jugos y Bebidas Preparadas', 'description' => 'Jugos, limonada, Milo y bebidas preparadas.', 'sort_order' => 16, 'products' => [
+            ['name' => 'Jugos y Bebidas Preparadas', 'description' => 'Jugos, limonada, Milo y bebidas preparadas.', 'sort_order' => 16, 'allows_sauces' => false, 'products' => [
                 ['name' => 'Jugo Natural Jarra', 'price' => 8500, 'description' => 'En agua $8.500 o en leche $9.500. Selecciona la fruta al pedir.'],
                 ['name' => 'Limonada Jarra', 'price' => 6500],
                 ['name' => 'Milo Jarra', 'price' => 10000],
                 ['name' => 'Tamarindo Preparada', 'price' => 5500],
             ]],
-            ['name' => 'Gaseosas y Agua', 'description' => 'Gaseosas y agua embotellada.', 'sort_order' => 17, 'products' => [
+            ['name' => 'Gaseosas y Agua', 'description' => 'Gaseosas y agua embotellada.', 'sort_order' => 17, 'allows_sauces' => false, 'products' => [
                 ['name' => 'Gaseosa 350 ml', 'price' => 4500],
                 ['name' => 'Gaseosa 1.5', 'price' => 9500],
                 ['name' => 'Agua Botella', 'price' => 3500],
             ]],
-            ['name' => 'Cerveza', 'description' => 'Cerveza.', 'sort_order' => 18, 'products' => [
+            ['name' => 'Cerveza', 'description' => 'Cerveza.', 'sort_order' => 18, 'allows_sauces' => false, 'products' => [
                 ['name' => 'Cerveza', 'price' => 5000],
             ]],
-            ['name' => 'Granizadas', 'description' => 'Granizadas en agua.', 'sort_order' => 19, 'products' => [
+            ['name' => 'Granizadas', 'description' => 'Granizadas en agua.', 'sort_order' => 19, 'allows_sauces' => false, 'products' => [
                 ['name' => 'Granizada de Naranja', 'price' => 8500, 'description' => 'En agua.'],
                 ['name' => 'Granizada de Limón', 'price' => 8500, 'description' => 'En agua.'],
                 ['name' => 'Granizada de Lulo', 'price' => 8500, 'description' => 'En agua.'],
@@ -151,6 +151,8 @@ class MekatosMenuSeeder extends Seeder
                         'price' => $productData['price'],
                         'image_path' => null,
                         'is_available' => true,
+                        // Comidas admiten salsas; bebidas y granizados no (independiente del icopor).
+                        'allows_sauces' => $categoryData['allows_sauces'] ?? true,
                     ]
                 );
             }

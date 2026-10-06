@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderRound;
 use App\Models\OrderSauce;
+use App\Models\Product;
 use App\Models\Sauce;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -86,7 +87,7 @@ class OrderSauces
     }
 
     /**
-     * Rechaza salsas enviadas para productos que no están en el pedido.
+     * Rechaza salsas enviadas para productos que no están en el pedido o que no admiten salsas.
      *
      * @param  array<int|string, int>  $items  product_id => cantidad
      */
@@ -109,6 +110,16 @@ class OrderSauces
         $ordered = array_map('intval', array_keys($items));
         if (array_diff($withSauces, $ordered) !== []) {
             throw ValidationException::withMessages(['sauces' => ['Las salsas deben corresponder a un producto incluido en el pedido.']]);
+        }
+
+        // Solo los productos configurados con "Permite salsas" (bebidas y granizados no).
+        $notAllowed = Product::query()
+            ->whereIn('id', array_unique($withSauces))
+            ->where('allows_sauces', false)
+            ->orderBy('name')
+            ->pluck('name');
+        if ($notAllowed->isNotEmpty()) {
+            throw ValidationException::withMessages(['sauces' => ['Estos productos no admiten salsas: '.$notAllowed->implode(', ').'.']]);
         }
     }
 

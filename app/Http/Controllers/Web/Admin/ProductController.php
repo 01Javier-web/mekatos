@@ -56,11 +56,13 @@ class ProductController extends Controller
             'price' => ['required', 'numeric', 'min:0'],
             'image_path' => ['nullable', 'string', 'max:255'],
             'is_available' => ['sometimes', 'boolean'],
+            'allows_sauces' => ['sometimes', 'boolean'],
         ]);
 
         Product::create([
             ...$validated,
             'is_available' => $request->boolean('is_available'),
+            'allows_sauces' => $request->boolean('allows_sauces'),
         ]);
 
         return redirect()->route('admin.settings.products.index')->with('success', 'Producto creado exitosamente.');
@@ -84,11 +86,13 @@ class ProductController extends Controller
             'price' => ['required', 'numeric', 'min:0'],
             'image_path' => ['nullable', 'string', 'max:255'],
             'is_available' => ['sometimes', 'boolean'],
+            'allows_sauces' => ['sometimes', 'boolean'],
         ]);
 
         $product->update([
             ...$validated,
             'is_available' => $request->boolean('is_available'),
+            'allows_sauces' => $request->boolean('allows_sauces'),
         ]);
 
         return redirect()->route('admin.settings.products.index')->with('success', 'Producto actualizado exitosamente.');

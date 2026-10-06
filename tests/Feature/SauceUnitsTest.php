@@ -45,10 +45,10 @@ class SauceUnitsTest extends TestCase
         $this->waiter = User::factory()->create(['role' => UserRole::Waiter, 'is_active' => true]);
         $perros = Category::create(['name' => 'Perros', 'description' => null, 'sort_order' => 1, 'is_active' => true]);
         $granizadas = Category::create(['name' => 'Granizadas', 'description' => null, 'sort_order' => 2, 'is_active' => true]);
-        $this->perro = Product::create(['category_id' => $perros->id, 'name' => 'Perro caliente', 'description' => null, 'price' => 12000, 'is_available' => true]);
-        $this->salchipapa = Product::create(['category_id' => $perros->id, 'name' => 'Salchipapa', 'description' => null, 'price' => 15000, 'is_available' => true]);
+        $this->perro = Product::create(['category_id' => $perros->id, 'name' => 'Perro caliente', 'description' => null, 'price' => 12000, 'is_available' => true, 'allows_sauces' => true]);
+        $this->salchipapa = Product::create(['category_id' => $perros->id, 'name' => 'Salchipapa', 'description' => null, 'price' => 15000, 'is_available' => true, 'allows_sauces' => true]);
         $this->granizado = Product::create(['category_id' => $granizadas->id, 'name' => 'Granizada de Mora', 'description' => null, 'price' => 8000, 'is_available' => true]);
-        $this->porcion = Product::create(['category_id' => $perros->id, 'name' => 'Porción de papas', 'description' => null, 'price' => 6000, 'is_available' => true, 'is_portion' => true]);
+        $this->porcion = Product::create(['category_id' => $perros->id, 'name' => 'Porción de papas', 'description' => null, 'price' => 6000, 'is_available' => true, 'is_portion' => true, 'allows_sauces' => true]);
     }
 
     private function s(string $name): int
@@ -150,14 +150,14 @@ class SauceUnitsTest extends TestCase
 
     public function test_personalized_packaged_product_keeps_icopor_per_unit(): void
     {
+        // El granizado lleva icopor pero no admite salsas: personalizarlo no divide nada.
         $this->create(OrderType::TAKEAWAY, [
             'items' => [$this->granizado->id => 3],
             'sauce_mode' => [$this->granizado->id => 'each'],
-            'unit_sauces' => [$this->granizado->id => [0 => [$this->s('Miel') => 'APARTE'], 1 => [], 2 => [$this->s('Miel') => 'APARTE']]],
         ])->assertSessionHasNoErrors();
         $order = $this->lastOrder();
 
-        $this->assertSame([['Granizada de Mora', 2, 16000, 'Miel (APARTE)'], ['Granizada de Mora', 1, 8000, '']], $this->lines($order));
+        $this->assertSame([['Granizada de Mora', 3, 24000, '']], $this->lines($order));
         $this->assertSame(3 * 1500, (int) $order->packaging_fee);
         $this->assertSame(24000 + 4500, (int) $order->total);
     }
@@ -309,6 +309,6 @@ class SauceUnitsTest extends TestCase
         $this->assertSame(1, substr_count($html, 'id="sauce-options-template"'));
         $this->assertSame(17, substr_count($html, 'name="__NAME__['));
         $this->assertSame(0, substr_count($html, 'name="sauces['));
-        $this->assertSame(Product::count(), substr_count($html, 'data-sauce-picker data-product-id'));
+        $this->assertSame(Product::where('allows_sauces', true)->count(), substr_count($html, 'data-sauce-picker data-product-id'));
     }
 }

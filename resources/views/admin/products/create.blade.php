@@ -18,6 +18,7 @@
         <label><span>Descripción <small>(opcional)</small></span><textarea id="description" name="description" rows="4" maxlength="1000" placeholder="Describe brevemente el producto.">{{ old('description') }}</textarea><small class="field-help"><span id="description-count">0</span>/1000 caracteres</small></label>
         <div id="image-preview-wrap" class="image-preview-wrap" hidden><img id="image-preview" alt="Vista previa del producto"><span>Vista previa</span></div>
         <label class="checkbox-label"><input type="checkbox" name="is_available" value="1" {{ old('is_available', true) ? 'checked' : '' }}><span>Producto disponible para vender</span></label>
+        <label class="checkbox-label"><input type="checkbox" name="allows_sauces" value="1" {{ old('allows_sauces', false) ? 'checked' : '' }}><span>Permite salsas <small>(pedidos para llevar y domicilio; no aplica a bebidas ni granizados)</small></span></label>
         <div class="form-actions"><a class="button" href="{{ route('admin.settings.products.index') }}">Cancelar</a><button class="button button-primary" type="submit" id="save-product">Guardar producto</button></div>
     </form>
 </div>
