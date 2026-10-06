@@ -27,7 +27,7 @@ class SaucesTest extends TestCase
 
     private const OFFICIAL = [
         'Tomate', 'Rosada', 'Tártara', 'Aderezo', 'Española', 'Repollo', 'Mostaza', 'Piña',
-        'Piña casera', 'Piña sobre', 'Mayonesa', 'BBQ', 'Maíz', 'Cebolla', 'Ripio de papa',
+        'Piña casera', 'Mayonesa', 'BBQ', 'Maíz', 'Cebolla', 'Ripio de papa',
         'Miel', 'Chimichurri',
     ];
 
@@ -103,10 +103,10 @@ class SaucesTest extends TestCase
 
     // --- Catálogo ---
 
-    public function test_the_17_official_sauces_exist_active_and_in_order(): void
+    public function test_the_16_official_sauces_exist_active_and_in_order(): void
     {
         $this->assertSame(self::OFFICIAL, Sauce::query()->orderBy('sort_order')->pluck('name')->all());
-        $this->assertSame(17, Sauce::where('is_active', true)->count());
+        $this->assertSame(16, Sauce::where('is_active', true)->count());
     }
 
     public function test_admin_can_deactivate_and_reactivate_a_sauce_without_deleting_it(): void
@@ -121,7 +121,7 @@ class SaucesTest extends TestCase
         $this->actingAs($this->admin)->put(route('admin.sauces.toggle', $rosada))->assertRedirect(route('admin.sauces.index'));
         $this->assertTrue($rosada->fresh()->is_active);
 
-        $this->assertSame(17, Sauce::count(), 'No se elimina ninguna salsa.');
+        $this->assertSame(16, Sauce::count(), 'No se elimina ninguna salsa.');
         // No existe ninguna ruta para eliminar salsas.
         $this->actingAs($this->admin)->delete('/admin/sauces/'.$rosada->id)->assertNotFound();
         $this->assertModelExists($rosada);
@@ -383,6 +383,6 @@ class SaucesTest extends TestCase
         $this->actingAs($this->admin)->post(route('admin.reports.daily.close'))->assertOk()->assertSessionHasNoErrors();
 
         $this->assertSame(0, OrderSauce::count());
-        $this->assertSame(17, Sauce::count());
+        $this->assertSame(16, Sauce::count());
     }
 }

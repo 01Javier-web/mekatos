@@ -300,14 +300,14 @@ class SauceUnitsTest extends TestCase
         $this->assertSame([$perroLine, $perroLine], $portionLines->pluck('paired_order_item_id')->all());
     }
 
-    // Rendimiento: las 17 salsas se escriben una sola vez por página
+    // Rendimiento: las 16 salsas se escriben una sola vez por página
 
     public function test_order_forms_render_the_sauce_options_once(): void
     {
         $html = $this->actingAs($this->admin)->get(route('admin.orders.create'))->assertOk()->getContent();
 
         $this->assertSame(1, substr_count($html, 'id="sauce-options-template"'));
-        $this->assertSame(17, substr_count($html, 'name="__NAME__['));
+        $this->assertSame(16, substr_count($html, 'name="__NAME__['));
         $this->assertSame(0, substr_count($html, 'name="sauces['));
         $this->assertSame(Product::where('allows_sauces', true)->count(), substr_count($html, 'data-sauce-picker data-product-id'));
     }
