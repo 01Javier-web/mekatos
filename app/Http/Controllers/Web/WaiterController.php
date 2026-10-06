@@ -12,7 +12,7 @@ class WaiterController extends Controller
     public function index(): View
     {
         $orders = Order::query()
-            ->with(['tableSession.restaurantTable', 'orderItems.product'])
+            ->with(['tableSession.restaurantTable', 'orderItems.product', 'orderItems.sauces.sauce', 'generalSauces.sauce'])
             // Pedidos activos: PENDIENTE, ENTREGADO y POR COBRAR (incluye los estados heredados).
             ->whereIn('status', [OrderStatus::PENDING, OrderStatus::DELIVERED, OrderStatus::TO_COLLECT, OrderStatus::PREPARING, OrderStatus::IN_TRANSIT])
             ->latest()

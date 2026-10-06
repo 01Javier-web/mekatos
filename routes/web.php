@@ -14,6 +14,7 @@ use App\Http\Controllers\Web\Admin\TableController;
 use App\Http\Controllers\Web\Admin\UserController;
 use App\Http\Controllers\Web\Admin\SalesReportController;
 use App\Http\Controllers\Web\Admin\JuiceFruitController;
+use App\Http\Controllers\Web\Admin\SauceController;
 use App\Http\Controllers\Web\Admin\BeverageOptionController;
 
 Route::get('/', fn () => redirect()->route('login'));
@@ -80,6 +81,8 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         Route::get('/admin/juice-fruits', [JuiceFruitController::class, 'index'])->name('admin.juice-fruits.index');
         Route::put('/admin/juice-fruits/{juiceFruit}/toggle', [JuiceFruitController::class, 'toggle'])->name('admin.juice-fruits.toggle');
+        Route::get('/admin/sauces', [SauceController::class, 'index'])->name('admin.sauces.index');
+        Route::put('/admin/sauces/{sauce}/toggle', [SauceController::class, 'toggle'])->name('admin.sauces.toggle');
         Route::get('/admin/products/{product}/beverage-options', [BeverageOptionController::class, 'index'])->name('admin.beverage-options.index');
         Route::put('/admin/products/{product}/beverage-options/{beverageOption}/toggle', [BeverageOptionController::class, 'toggle'])->name('admin.beverage-options.toggle');
 

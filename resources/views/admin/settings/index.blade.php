@@ -30,6 +30,16 @@
                 <a class="button button-primary" href="{{ route('admin.settings.categories.index') }}">Gestionar categorías</a>
             </div>
         </article>
+
+        <article class="settings-card">
+            <div class="settings-icon" aria-hidden="true">🥫</div>
+            <div class="settings-card-content">
+                <span class="settings-label">Pedidos</span>
+                <h3>Salsas</h3>
+                <p>Activa o desactiva las salsas disponibles para pedidos PARA LLEVAR y DOMICILIO.</p>
+                <a class="button button-primary" href="{{ route('admin.sauces.index') }}">Gestionar salsas</a>
+            </div>
+        </article>
     </section>
 </div>
 

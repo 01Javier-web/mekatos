@@ -27,12 +27,14 @@
                             <span class="line-name">{{ $item->quantity }} × {{ $item->product?->name ?? 'Producto' }}</span>
                         </div>
                         @if($item->notes)<div class="line-note">Detalle: {{ $item->notes }}</div>@endif
+                        @include('orders.partials.item-sauces', ['item' => $item, 'class' => 'line-note'])
 
                         @foreach($kitchenItems->where('paired_order_item_id', $item->id) as $portion)
                             <div class="line" style="padding-left:10px;font-size:18px;">
                                 <span class="line-name">↳ {{ $portion->quantity }} × {{ $portion->product?->name ?? 'Porción' }}</span>
                             </div>
                             <div class="line-note">Acompaña a: {{ $item->product?->name ?? 'Producto' }}@if($portion->notes) · {{ $portion->notes }}@endif</div>
+                            @include('orders.partials.item-sauces', ['item' => $portion, 'class' => 'line-note'])
                         @endforeach
 
                         @if($item->paired_order_item_id && ! $parentIsPrinted)
@@ -40,6 +42,7 @@
                         @endif
                     @endif
                 @endforeach
+                @if(($generalSauces ?? collect())->isNotEmpty())<div class="general-note"><strong>Salsas generales (aparte)</strong>{{ $generalSauces->map(fn ($s) => $s->sauce?->name)->filter()->implode(', ') }}</div>@endif
                 @if($order->notes)<div class="general-note"><strong>Nota general</strong>{{ $order->notes }}</div>@endif
             </section>
         @endif
@@ -53,6 +56,7 @@
                 @foreach($beverageItems as $item)
                     <div class="line"><span class="line-name">{{ $item->quantity }} × {{ $item->product?->name ?? 'Jugo' }}</span></div>
                     @if($item->notes)<div class="line-note">Detalle: {{ $item->notes }}</div>@endif
+                    @include('orders.partials.item-sauces', ['item' => $item, 'class' => 'line-note'])
                 @endforeach
                 @if($order->notes)<div class="general-note"><strong>Nota general</strong>{{ $order->notes }}</div>@endif
             </section>
@@ -83,6 +87,7 @@
                     @if($item->notes)
                         <div class="line-note">Detalle: {{ $item->notes }}</div>
                     @endif
+                    @include('orders.partials.item-sauces', ['item' => $item, 'class' => 'line-note'])
                 @endforeach
                 <div class="separator"></div>
                 @if($isAddition)
@@ -123,6 +128,12 @@
                     <div class="total-line grand-total">
                         <span>TOTAL</span>
                         <span>&#36;{{ number_format($order->total, 0, ',', '.') }}</span>
+                    </div>
+                @endif
+                @if(($generalSauces ?? collect())->isNotEmpty())
+                    <div class="general-note">
+                        <strong>Salsas generales (aparte)</strong>
+                        {{ $generalSauces->map(fn ($s) => $s->sauce?->name)->filter()->implode(', ') }}
                     </div>
                 @endif
                 @if($order->notes)

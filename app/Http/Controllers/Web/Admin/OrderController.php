@@ -10,10 +10,12 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\RestaurantTable;
+use App\Models\Sauce;
 use App\Models\TableSession;
 use App\Support\BeverageOptions;
 use App\Support\ComboOptions;
 use App\Support\JuiceOptions;
+use App\Support\OrderSauces;
 use App\Support\TableSessionLock;
 use App\Support\TakeawayPackaging;
 use App\TableSessionStatus;
@@ -31,7 +33,7 @@ class OrderController extends Controller
 {
     public function index(Request $request): View { $orders=Order::query()->with(['tableSession.restaurantTable','orderItems.product','handledBy'])->when($request->status,fn($q,$s)=>$q->whereIn('status',OrderStatus::tryFrom($s)?->storedValues() ?? [$s]),fn($q)=>$q->where('status','!=',OrderStatus::COMPLETED->value))->oldest()->get(); return view('admin.orders.index',['orders'=>$orders,'statuses'=>OrderStatus::operationalCases(),'selectedStatus'=>$request->status]); }
     public function pending(): JsonResponse { $orders=Order::query()->where('status',OrderStatus::PENDING->value)->with(['tableSession.restaurantTable','handledBy'])->oldest()->get(); return response()->json(['count'=>$orders->count(),'ids'=>$orders->pluck('id')->values(),'orders'=>$orders->map(fn(Order $o)=>['id'=>$o->id,'location'=>$o->type?->value==='PARA_LLEVAR'?'PARA LLEVAR':($o->type?->value==='DOMICILIO'?'DOMICILIO':'MESA '.($o->tableSession?->restaurantTable?->number??'—')),'time'=>$o->created_at?->format('H:i'),'responsible'=>$o->handledBy?->name??'Pedido QR'])->values()]); }
-    public function create(): View { return view('admin.orders.create-v2',['products'=>Product::query()->with(['category','beverageOptions'])->where('is_available',true)->whereHas('category',fn($q)=>$q->where('is_active',true))->orderBy('name')->get(),'tables'=>RestaurantTable::query()->where('status','!=',TableStatus::CLEANING->value)->orderBy('number')->get(),'categories'=>Category::query()->where('is_active',true)->orderBy('name')->get(),'orderTypes'=>OrderType::cases(),'comboBeverages'=>collect(ComboOptions::types())->mapWithKeys(fn($label,$type)=>[$type=>['label'=>$label,'flavors'=>ComboOptions::availableFlavors($type)]])->all(),'comboPrice'=>ComboOptions::PRICE,'juiceFruits'=>$this->selectableJuiceFruits()]); }
+    public function create(): View { return view('admin.orders.create-v2',['products'=>Product::query()->with(['category','beverageOptions'])->where('is_available',true)->whereHas('category',fn($q)=>$q->where('is_active',true))->orderBy('name')->get(),'tables'=>RestaurantTable::query()->where('status','!=',TableStatus::CLEANING->value)->orderBy('number')->get(),'categories'=>Category::query()->where('is_active',true)->orderBy('name')->get(),'orderTypes'=>OrderType::cases(),'comboBeverages'=>collect(ComboOptions::types())->mapWithKeys(fn($label,$type)=>[$type=>['label'=>$label,'flavors'=>ComboOptions::availableFlavors($type)]])->all(),'comboPrice'=>ComboOptions::PRICE,'juiceFruits'=>$this->selectableJuiceFruits(),'sauces'=>Sauce::query()->selectable()->get()]); }
     public function store(Request $request): RedirectResponse {
         $v=$request->validate([
             'type'=>['required',Rule::enum(OrderType::class)],
@@ -62,7 +64,7 @@ class OrderController extends Controller
             'combo_beverage_flavor'=>['nullable','array'],
             'combo_beverage_flavor.*'=>['nullable','string','max:100'],
             'notes'=>['nullable','string','max:2000'],
-        ]);
+        ]+OrderSauces::rules());
         $v['items']=array_filter($v['items'],static fn($q)=>(int)$q!==0);
         $v['items']=validator(['items'=>$v['items']],['items'=>['required','array','min:1'],'items.*'=>['required','integer','min:1','max:99']])->validate()['items'];
         $type=OrderType::from($v['type']);
@@ -94,6 +96,8 @@ class OrderController extends Controller
             $subtotal=0;
             $packagingFee=0;
             $createdItems=[];
+            $lineSauces=[];
+            OrderSauces::assertOnlyOrderedProducts($v['items'],$v);
 
             foreach($v['items'] as $productId=>$quantity){
                 $p=Product::query()->with(['category','beverageOptions'])->findOrFail($productId);
@@ -126,11 +130,19 @@ class OrderController extends Controller
 
                 $line=$price*$quantity;
                 $packagingFee+=TakeawayPackaging::fee($p,$quantity,$type->value);
-                $createdItems[$p->id]=OrderItem::create(['order_id'=>$order->id,'order_round_id'=>$round->id,'product_id'=>$p->id,'quantity'=>$quantity,'unit_price'=>$price,'total'=>$line,'notes'=>$notes,'sent_at'=>null]);
+                // Una línea por configuración de salsas: con "Todos iguales" (o sin salsas) queda
+                // una sola línea ×N, igual que antes; las unidades personalizadas distintas se separan.
+                foreach(OrderSauces::unitGroups($quantity,$v,(int)$productId) as $group){
+                    $item=OrderItem::create(['order_id'=>$order->id,'order_round_id'=>$round->id,'product_id'=>$p->id,'quantity'=>$group['quantity'],'unit_price'=>$price,'total'=>$price*$group['quantity'],'notes'=>$notes,'sent_at'=>null]);
+                    $createdItems[$p->id][]=$item;
+                    $lineSauces[]=[$item,$group['sauces']];
+                }
                 $subtotal+=$line;
             }
 
             $this->applyPortionPairings($order, $v['portion_pairing'] ?? [], $createdItems);
+            // Salsas (gratuitas, solo PARA_LLEVAR/DOMICILIO): no cambian subtotal, icopor ni total.
+            OrderSauces::attach($order, $round, $lineSauces, $v['general_sauces'] ?? []);
             $order->update(['subtotal'=>$subtotal,'packaging_fee'=>$packagingFee,'tax'=>0,'total'=>$subtotal+$packagingFee+(int)$order->delivery_fee+(int)$order->tax]);
             $order->statusHistories()->create(['previous_status'=>null,'new_status'=>OrderStatus::PENDING->value,'changed_by_user_id'=>Auth::id(),'changed_at'=>now()]);
             return $order;
@@ -161,6 +173,8 @@ class OrderController extends Controller
                 ])
                 ->all(),
             'juiceFruits' => $this->selectableJuiceFruits(),
+            'sauces' => Sauce::query()->selectable()->get(),
+            'saucesEnabled' => OrderSauces::allowedFor($order->type),
         ]);
     }
 
@@ -198,7 +212,7 @@ class OrderController extends Controller
             'combo_beverage_type.*' => ['nullable', Rule::in(array_keys(ComboOptions::types()))],
             'combo_beverage_flavor' => ['nullable', 'array'],
             'combo_beverage_flavor.*' => ['nullable', 'string', 'max:100'],
-        ]);
+        ] + OrderSauces::rules());
 
         $v['items'] = array_filter($v['items'], static fn ($q) => (int) $q !== 0);
         $v['items'] = validator(
@@ -233,7 +247,9 @@ class OrderController extends Controller
             ]);
 
             $createdItems = [];
+            $lineSauces = [];
             $additionPackagingFee = 0;
+            OrderSauces::assertOnlyOrderedProducts($v['items'], $v);
 
             foreach ($v['items'] as $productId => $quantity) {
                 $p = Product::query()->with(['category', 'beverageOptions'])->findOrFail($productId);
@@ -288,20 +304,27 @@ class OrderController extends Controller
                     $notes = trim(implode(' · ', array_filter([$comboNote, $notes])));
                 }
 
-                $createdItems[$p->id] = OrderItem::create([
-                    'order_id' => $order->id,
-                    'order_round_id' => $round->id,
-                    'product_id' => $p->id,
-                    'quantity' => $quantity,
-                    'unit_price' => $price,
-                    'total' => $price * $quantity,
-                    'notes' => $notes,
-                    'sent_at' => null,
-                ]);
+                // Una línea por configuración de salsas (ver OrderSauces::unitGroups).
+                foreach (OrderSauces::unitGroups($quantity, $v, (int) $productId) as $group) {
+                    $item = OrderItem::create([
+                        'order_id' => $order->id,
+                        'order_round_id' => $round->id,
+                        'product_id' => $p->id,
+                        'quantity' => $group['quantity'],
+                        'unit_price' => $price,
+                        'total' => $price * $group['quantity'],
+                        'notes' => $notes,
+                        'sent_at' => null,
+                    ]);
+                    $createdItems[$p->id][] = $item;
+                    $lineSauces[] = [$item, $group['sauces']];
+                }
                 $additionPackagingFee += TakeawayPackaging::fee($p, $quantity, $order->type->value);
             }
 
             $this->applyPortionPairings($order, $v['portion_pairing'] ?? [], $createdItems);
+            // Salsas de esta adición (gratuitas, solo PARA_LLEVAR/DOMICILIO).
+            OrderSauces::attach($order, $round, $lineSauces, $v['general_sauces'] ?? []);
 
             $order->load('orderItems.product');
             $subtotal = $order->orderItems->sum('total');
@@ -343,7 +366,10 @@ class OrderController extends Controller
                 continue;
             }
 
-            $portionItem = $createdItems[$portionProductId] ?? null;
+            // Un producto puede haber quedado en varias líneas (salsas personalizadas por unidad):
+            // todas las líneas de la porción acompañan al producto elegido.
+            $portionItems = $createdItems[$portionProductId] ?? [];
+            $portionItem = $portionItems[0] ?? null;
 
             if (! $portionItem) {
                 throw ValidationException::withMessages([
@@ -379,7 +405,9 @@ class OrderController extends Controller
                 ]);
             }
 
-            $portionItem->update(['paired_order_item_id' => $targetItem->id]);
+            foreach ($portionItems as $line) {
+                $line->update(['paired_order_item_id' => $targetItem->id]);
+            }
         }
     }
 
@@ -427,7 +455,7 @@ class OrderController extends Controller
         }
     }
 
-    public function show(Order $order): View {$order->load(['tableSession.restaurantTable','orderItems.product','statusHistories.changedBy','handledBy','deliveredBy','paidBy']);return view('admin.orders.show',['order'=>$order,'statuses'=>OrderStatus::operationalCases()]);}
+    public function show(Order $order): View {$order->load(['tableSession.restaurantTable','orderItems.product','orderItems.sauces.sauce','generalSauces.sauce','statusHistories.changedBy','handledBy','deliveredBy','paidBy']);return view('admin.orders.show',['order'=>$order,'statuses'=>OrderStatus::operationalCases()]);}
     public function updateStatus(Request $request,Order $order): RedirectResponse {$request->validate(['status'=>['required',Rule::enum(OrderStatus::class)]]);
         // Ya no hay cambios manuales de estado: PENDIENTE → ENTREGADO ocurre al imprimir las
         // comandas, y ENTREGADO → POR COBRAR al imprimir la cuenta (mesa) o con "🛵 Salió" (domicilio).

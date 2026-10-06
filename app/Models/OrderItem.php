@@ -43,4 +43,10 @@ class OrderItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    /** Salsas de este producto (EN_PRODUCTO o APARTE). */
+    public function sauces(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(OrderSauce::class)->orderBy('id');
+    }
 }

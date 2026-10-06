@@ -6,11 +6,13 @@ use App\Enums\OrderStatus;
 use App\Enums\OrderType;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\OrderSauce;
 use App\Models\TableSession;
 use App\Support\TableSessionLock;
 use App\TableSessionStatus;
 use App\TableStatus;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -30,6 +32,7 @@ class PrintController extends Controller
             'tableSession.restaurantTable',
             'orderItems.product.category',
             'orderItems.pairedOrderItem.product',
+            'orderItems.sauces.sauce',
             'handledBy',
         ]);
 
@@ -111,7 +114,23 @@ class PrintController extends Controller
             'isAddition' => $isAddition,
             'roundNumber' => $roundNumber,
             'roundCreatedBy' => $roundCreatedBy,
+            'generalSauces' => $this->generalSaucesForRounds($order, $unsentItems->pluck('order_round_id')),
         ]);
+    }
+
+    /**
+     * Salsas generales (aparte) elegidas en las rondas que se imprimen: así la comanda
+     * de una adición solo muestra las salsas generales que se pidieron en esa adición.
+     */
+    private function generalSaucesForRounds(Order $order, Collection $roundIds): Collection
+    {
+        return OrderSauce::query()
+            ->with('sauce')
+            ->where('order_id', $order->id)
+            ->whereNull('order_item_id')
+            ->whereIn('order_round_id', $roundIds->filter()->unique()->values())
+            ->orderBy('id')
+            ->get();
     }
 
     /**
@@ -124,6 +143,7 @@ class PrintController extends Controller
             'tableSession.restaurantTable',
             'orderItems.product.category',
             'orderItems.pairedOrderItem.product',
+            'orderItems.sauces.sauce',
             'handledBy',
             'rounds.createdBy',
         ]);
@@ -165,6 +185,7 @@ class PrintController extends Controller
             'roundNumber' => (int) ($latestRound?->number ?? 1),
             'roundCreatedBy' => $latestRound?->createdBy?->name,
             'isReprint' => true,
+            'generalSauces' => $this->generalSaucesForRounds($order, $batchRoundIds),
         ]);
     }
 

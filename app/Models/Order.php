@@ -51,6 +51,12 @@ class Order extends Model
         return $this->hasMany(OrderStatusHistory::class);
     }
 
+    /** Salsas generales del pedido (no asociadas a un producto; siempre van aparte). */
+    public function generalSauces(): HasMany
+    {
+        return $this->hasMany(OrderSauce::class)->whereNull('order_item_id')->orderBy('id');
+    }
+
     public function handledBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'handled_by_user_id');
