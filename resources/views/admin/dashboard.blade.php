@@ -2,7 +2,7 @@
 @section('title', 'Inicio | Mekatos')
 @section('content')
 <div class="page-shell">
-    <div class="page-heading dashboard-heading"><div><span class="eyebrow">Panel administrativo</span><h2>Buenos días, {{ auth()->user()->name }}</h2><p>Una vista rápida para saber qué necesita atención ahora.</p></div><a class="button button-primary" href="{{ route('admin.orders.create') }}">+ Crear pedido</a></div>
+    <div class="page-heading dashboard-heading"><div><span class="eyebrow">Panel administrativo</span><h2>Hola {{ auth()->user()->name }}</h2><p>Una vista rápida para saber qué necesita atención ahora.</p></div><a class="button button-primary" href="{{ route('admin.orders.create') }}">+ Crear pedido</a></div>
     <section class="dashboard-focus" aria-label="Estado de la operación"><div><span class="focus-dot"></span><div><strong>Operación activa</strong><small>Gestiona los pedidos y la impresión desde caja.</small></div></div><a href="{{ route('admin.orders.index') }}">Abrir caja <span aria-hidden="true">→</span></a></section>
     <div class="stats-grid">
         <a class="stat-card" href="{{ route('admin.orders.index') }}"><span>Pedidos registrados</span><strong>{{ $ordersCount }}</strong><small>Histórico del sistema</small></a>
