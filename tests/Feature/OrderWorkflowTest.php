@@ -32,11 +32,11 @@ class OrderWorkflowTest extends TestCase
 
     public function test_status_endpoint_no_longer_allows_manual_preparing_or_delivered(): void
     {
-        // Ya no hay pasos manuales: PENDIENTE → ENTREGADO ocurre al imprimir las comandas.
+        // Ya no hay pasos manuales: PENDIENTE → POR COBRAR ocurre al imprimir las comandas.
         $admin = $this->admin();
         $order = $this->order();
 
-        foreach ([OrderStatus::PREPARING, OrderStatus::DELIVERED, OrderStatus::TO_COLLECT] as $status) {
+        foreach ([OrderStatus::PREPARING, OrderStatus::DELIVERED, OrderStatus::TO_COLLECT, OrderStatus::CANCELLED] as $status) {
             $this->actingAs($admin)->put(route('admin.orders.status', $order), ['status' => $status->value])->assertSessionHasErrors('status');
         }
 

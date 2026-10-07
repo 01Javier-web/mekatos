@@ -27,6 +27,13 @@ class OrderSauce extends Model
         'order_round_id',
         'sauce_id',
         'placement',
+        'sent_at',
+        'voided_at',
+        'void_sent_at',
+    ];
+
+    protected $casts = [
+        'voided_at' => 'datetime',
     ];
 
     public function order(): BelongsTo

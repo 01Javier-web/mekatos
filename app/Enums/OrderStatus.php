@@ -5,30 +5,31 @@ namespace App\Enums;
 /**
  * Estados del pedido.
  *
- * Flujo operativo: PENDIENTE → ENTREGADO → POR COBRAR → TERMINADO (pago registrado).
+ * Flujo operativo: PENDIENTE → POR COBRAR → TERMINADO (pago registrado).
  * - PENDIENTE: recién creado o con una adición sin imprimir.
- * - ENTREGADO: comandas impresas (la impresión operativa hace la transición).
- * - POR COBRAR: cuenta de mesa impresa o domicilio que "🛵 Salió".
+ * - POR COBRAR: comandas impresas; falta registrar el pago.
  * - TERMINADO: pago registrado.
+ * - CANCELADO: excepción. El pedido se conserva con su historial, pero no cuenta
+ *   como venta, no se cobra y no está activo.
+ *
+ * "🛵 Salió" (domicilios) no es un estado: es la marca dispatched_at del pedido.
  */
 enum OrderStatus: string
 {
     case PENDING = 'PENDIENTE';
-    case DELIVERED = 'ENTREGADO';
     case TO_COLLECT = 'POR COBRAR';
     case COMPLETED = 'TERMINADO';
+    case CANCELLED = 'CANCELADO';
 
     // Estados heredados: se conservan solo para leer datos anteriores y nunca se asignan.
-    // EN PREPARACIÓN equivale a ENTREGADO y EN CAMINO a POR COBRAR (ver operational()).
+    // Equivalen a POR COBRAR (ver operational()).
+    case DELIVERED = 'ENTREGADO';
     case PREPARING = 'EN PREPARACIÓN';
     case IN_TRANSIT = 'EN CAMINO';
 
-    // Conserva registros históricos anteriores sin ofrecer este estado en la operación actual.
-    case LEGACY_CANCELLED = 'CANCELADO';
-
     public static function operationalCases(): array
     {
-        return [self::PENDING, self::DELIVERED, self::TO_COLLECT, self::COMPLETED];
+        return [self::PENDING, self::TO_COLLECT, self::COMPLETED, self::CANCELLED];
     }
 
     /**
@@ -37,8 +38,7 @@ enum OrderStatus: string
     public function operational(): self
     {
         return match ($this) {
-            self::PREPARING => self::DELIVERED,
-            self::IN_TRANSIT => self::TO_COLLECT,
+            self::DELIVERED, self::PREPARING, self::IN_TRANSIT => self::TO_COLLECT,
             default => $this,
         };
     }
@@ -57,10 +57,28 @@ enum OrderStatus: string
     }
 
     /**
-     * ¿Ya se imprimió y solo falta registrar el pago? (ENTREGADO o POR COBRAR).
+     * Valores guardados de los pedidos activos (PENDIENTE o POR COBRAR, con sus heredados).
+     *
+     * @return array<int, string>
+     */
+    public static function activeValues(): array
+    {
+        return [...self::PENDING->storedValues(), ...self::TO_COLLECT->storedValues()];
+    }
+
+    /**
+     * ¿Ya se imprimió y solo falta registrar el pago? (POR COBRAR).
      */
     public function isCollectable(): bool
     {
-        return in_array($this->operational(), [self::DELIVERED, self::TO_COLLECT], true);
+        return $this->operational() === self::TO_COLLECT;
+    }
+
+    /**
+     * ¿Sigue en operación? (PENDIENTE o POR COBRAR). Solo estos pedidos se pueden cancelar.
+     */
+    public function isActive(): bool
+    {
+        return in_array($this->operational(), [self::PENDING, self::TO_COLLECT], true);
     }
 }

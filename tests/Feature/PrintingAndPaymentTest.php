@@ -43,7 +43,7 @@ class PrintingAndPaymentTest extends TestCase
         return $order;
     }
 
-    public function test_printing_pending_order_moves_it_to_delivered_and_separates_juice_and_bottled_drinks(): void
+    public function test_printing_pending_order_moves_it_to_por_cobrar_and_separates_juice_and_bottled_drinks(): void
     {
         $admin = $this->admin();
         $food = $this->product('Hamburguesa de prueba', 'Hamburguesas', 20000);
@@ -58,8 +58,8 @@ class PrintingAndPaymentTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('admin.orders.print', $order));
         $response->assertOk()->assertSee('Cocina')->assertSee('Bebidas')->assertSee('Hamburguesa de prueba')->assertSee('Jugo Natural Jarra')->assertDontSee('Gaseosa 350 ml');
-        // Imprimir es lo que entrega el pedido: PENDIENTE → ENTREGADO, con quien imprimió como responsable.
-        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => OrderStatus::DELIVERED->value, 'delivered_by_user_id' => $admin->id]);
+        // Imprimir las comandas deja el pedido POR COBRAR, con quien imprimió como responsable.
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => OrderStatus::TO_COLLECT->value, 'delivered_by_user_id' => $admin->id]);
         $this->assertNotNull($order->fresh()->delivered_at);
     }
 

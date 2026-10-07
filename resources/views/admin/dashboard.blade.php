@@ -7,7 +7,6 @@
     <div class="stats-grid">
         <a class="stat-card" href="{{ route('admin.orders.index') }}"><span>Pedidos registrados</span><strong>{{ $ordersCount }}</strong><small>Histórico del sistema</small></a>
         <a class="stat-card stat-attention" href="{{ route('admin.orders.index', ['status' => 'PENDIENTE']) }}"><span>Pendientes de impresión</span><strong>{{ $pendingOrders }}</strong><small>Requieren atención de caja</small></a>
-        <a class="stat-card" href="{{ route('admin.orders.index', ['status' => 'ENTREGADO']) }}"><span>Entregados</span><strong>{{ $deliveredOrders }}</strong><small>Comandas impresas</small></a>
         <a class="stat-card stat-ready" href="{{ route('admin.orders.index', ['status' => 'POR COBRAR']) }}"><span>Por cobrar</span><strong>{{ $toCollectOrders }}</strong><small>Pendientes de cobro</small></a>
         <a class="stat-card" href="{{ route('admin.products.index') }}"><span>Productos activos</span><strong>{{ $productsCount }}</strong><small>Disponibles en menú</small></a>
         <a class="stat-card" href="{{ route('admin.categories.index') }}"><span>Categorías</span><strong>{{ $categoriesCount }}</strong><small>Organización del menú</small></a>

@@ -167,12 +167,12 @@ class AuditStageOneTest extends TestCase
         $this->assertDatabaseCount('orders', 1);
     }
 
-    public function test_legacy_cancelled_orders_do_not_block_close_day(): void
+    public function test_cancelled_orders_do_not_block_close_day(): void
     {
         $admin = $this->admin();
         $table = RestaurantTable::create(['number' => 29, 'capacity' => 4, 'qr_token' => 'close-day-29', 'status' => TableStatus::OCCUPIED]);
 
-        foreach ([OrderStatus::LEGACY_CANCELLED, OrderStatus::COMPLETED] as $status) {
+        foreach ([OrderStatus::CANCELLED, OrderStatus::COMPLETED] as $status) {
             Order::create([
                 'table_session_id' => null,
                 'type' => OrderType::TAKEAWAY,
@@ -294,7 +294,7 @@ class AuditStageOneTest extends TestCase
         ]);
         $order = Order::query()->firstOrFail();
 
-        $this->actingAs($admin)->get(route('admin.orders.add', $order))
+        $this->actingAs($admin)->get(route('admin.orders.edit', $order))
             ->assertOk()
             ->assertDontSee('Producto oculto');
 

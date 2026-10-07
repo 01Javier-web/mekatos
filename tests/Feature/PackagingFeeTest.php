@@ -279,7 +279,7 @@ class PackagingFeeTest extends TestCase
         // se calcule y se muestre también para DOMICILIO, y que el granizado esté marcado con icopor.
         $order = $this->webOrder(OrderType::DELIVERY, [$this->plato->id => 1]);
 
-        $add = $this->actingAs($this->admin)->get(route('admin.orders.add', $order))->assertOk();
+        $add = $this->actingAs($this->admin)->get(route('admin.orders.edit', $order))->assertOk();
         $add->assertSee("const delivery=type==='DOMICILIO'", false)
             ->assertSee("fee=(takeaway||delivery)&&c.dataset.packaging==='1'?1500*q:0", false)
             ->assertSee("const feeLine=(takeaway||delivery)&&packaging?", false)

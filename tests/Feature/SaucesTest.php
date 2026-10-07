@@ -208,7 +208,7 @@ class SaucesTest extends TestCase
         $this->assertSame(0, OrderSauce::count());
 
         // La adición de una mesa tampoco ofrece ni acepta salsas.
-        $this->actingAs($this->admin)->get(route('admin.orders.add', $table))->assertOk()->assertDontSee('Agregar salsas');
+        $this->actingAs($this->admin)->get(route('admin.orders.edit', $table))->assertOk()->assertDontSee('Agregar salsas');
         $this->actingAs($this->admin)->post(route('admin.orders.add.store', $table), ['items' => [$this->perro->id => 1], 'general_sauces' => [$this->sauce('Tomate')->id]])
             ->assertSessionHasErrors('sauces');
         $this->assertSame(2, $table->orderItems()->count());
@@ -349,7 +349,7 @@ class SaucesTest extends TestCase
         $order = $this->lastOrder();
         $this->actingAs($this->admin)->get(route('admin.orders.print', $order))->assertOk();
 
-        $this->actingAs($this->admin)->get(route('admin.orders.add', $order))->assertOk()->assertSee('Agregar salsas');
+        $this->actingAs($this->admin)->get(route('admin.orders.edit', $order))->assertOk()->assertSee('Agregar salsas');
         $this->actingAs($this->waiter)->post(route('admin.orders.add.store', $order), [
             'items' => [$this->salchipapas->id => 1, $this->granizado->id => 1],
             'sauces' => [$this->salchipapas->id => [$this->sauce('Miel')->id => 'APARTE']],

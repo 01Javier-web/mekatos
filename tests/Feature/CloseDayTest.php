@@ -69,7 +69,7 @@ class CloseDayTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.orders.print', $order))->assertOk();
     }
 
-    /** "🛵 Salió": ENTREGADO → POR COBRAR. */
+    /** "🛵 Salió": marca del domicilio (sigue POR COBRAR). */
     private function dispatchDelivery(Order $order): void
     {
         $this->actingAs($this->admin)->put(route('admin.orders.dispatch', $order))->assertSessionHasNoErrors();
@@ -191,10 +191,10 @@ class CloseDayTest extends TestCase
         $this->assertSame(TableStatus::OCCUPIED, RestaurantTable::firstOrFail()->status);
     }
 
-    public function test_close_succeeds_with_legacy_cancelled_orders(): void
+    public function test_close_succeeds_with_cancelled_orders(): void
     {
         $this->completedDayWithEveryOrderType();
-        Order::create(['table_session_id' => null, 'type' => OrderType::TAKEAWAY, 'status' => OrderStatus::LEGACY_CANCELLED, 'subtotal' => 5000, 'tax' => 0, 'total' => 5000]);
+        Order::create(['table_session_id' => null, 'type' => OrderType::TAKEAWAY, 'status' => OrderStatus::CANCELLED, 'subtotal' => 5000, 'tax' => 0, 'total' => 5000]);
 
         $this->closeDay()->assertOk()->assertSessionHasNoErrors();
 
@@ -242,16 +242,16 @@ class CloseDayTest extends TestCase
         $this->assertSame(TableStatus::OCCUPIED, RestaurantTable::where('number', 5)->first()->status);
     }
 
-    public function test_close_is_rejected_with_a_delivered_table_order(): void
+    public function test_close_is_rejected_with_a_printed_but_unpaid_table_order(): void
     {
         $this->completedDayWithEveryOrderType();
-        $delivered = $this->createOrder(OrderType::TABLE, $this->table(5));
-        $this->print($delivered);
-        $this->assertSame(OrderStatus::DELIVERED, $delivered->fresh()->status);
+        $printed = $this->createOrder(OrderType::TABLE, $this->table(5));
+        $this->print($printed);
+        $this->assertSame(OrderStatus::TO_COLLECT, $printed->fresh()->status);
 
-        $this->assertRejectedWithoutChanges($this->operationalCounts(), $delivered);
+        $this->assertRejectedWithoutChanges($this->operationalCounts(), $printed);
 
-        $this->assertSame(OrderStatus::DELIVERED, $delivered->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $printed->fresh()->status);
         $this->assertSame(TableStatus::OCCUPIED, RestaurantTable::where('number', 5)->first()->status);
     }
 
@@ -330,7 +330,7 @@ class CloseDayTest extends TestCase
 
         $this->assertSame(OrderStatus::PENDING, $tableOrder->fresh()->status);
         $this->assertSame(OrderStatus::PENDING, $takeaway->fresh()->status);
-        $this->assertSame(OrderStatus::DELIVERED, $delivery->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $delivery->fresh()->status);
         $this->assertSame(TableStatus::OCCUPIED, $table->fresh()->status);
         $this->assertSame(2, $tableOrder->fresh()->orderItems()->sum('quantity'));
     }

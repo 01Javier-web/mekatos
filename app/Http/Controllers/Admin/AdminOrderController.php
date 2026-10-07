@@ -31,8 +31,8 @@ class AdminOrderController extends Controller
     {
         $request->validate(['status' => ['required', Rule::enum(OrderStatus::class)]]);
 
-        // Ya no hay cambios manuales de estado (igual que en la web): PENDIENTE → ENTREGADO
+        // Ya no hay cambios manuales de estado (igual que en la web): PENDIENTE → POR COBRAR
         // ocurre al imprimir las comandas.
-        throw ValidationException::withMessages(['status' => ['El estado del pedido no se cambia manualmente: pasa a ENTREGADO al imprimir las comandas.']]);
+        throw ValidationException::withMessages(['status' => ['El estado del pedido no se cambia manualmente: pasa a POR COBRAR al imprimir las comandas.']]);
     }
 }

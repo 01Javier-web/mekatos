@@ -31,8 +31,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/waiter/orders', [WaiterController::class, 'index'])->middleware('role:ADMIN,MESERO')->name('waiter.orders');
     Route::get('/admin/orders/create', [OrderController::class, 'create'])->middleware('role:ADMIN,MESERO')->name('admin.orders.create');
     Route::post('/admin/orders', [OrderController::class, 'store'])->middleware('role:ADMIN,MESERO')->name('admin.orders.store');
+    // "✏️ Editar pedido" (agregar, quitar, sustituir, cambiar cantidades o salsas). Las rutas
+    // antiguas de "agregar" llevan al mismo flujo.
+    Route::get('/admin/orders/{order}/edit', [OrderController::class, 'edit'])->middleware('role:ADMIN,MESERO')->name('admin.orders.edit');
+    Route::post('/admin/orders/{order}/edit', [OrderController::class, 'update'])->middleware('role:ADMIN,MESERO')->name('admin.orders.update');
     Route::get('/admin/orders/{order}/add', [OrderController::class, 'add'])->middleware('role:ADMIN,MESERO')->name('admin.orders.add');
-    Route::post('/admin/orders/{order}/add', [OrderController::class, 'storeAddition'])->middleware('role:ADMIN,MESERO')->name('admin.orders.add.store');
+    Route::post('/admin/orders/{order}/add', [OrderController::class, 'update'])->middleware('role:ADMIN,MESERO')->name('admin.orders.add.store');
 
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])->middleware('role:ADMIN')->name('admin.dashboard');
     Route::get('/admin/reports/daily', [SalesReportController::class, 'daily'])->middleware('role:ADMIN')->name('admin.reports.daily');
@@ -42,9 +46,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/admin/orders/{order}', [OrderController::class, 'show'])->middleware('role:ADMIN')->name('admin.orders.show');
     Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:ADMIN')->name('admin.orders.status');
     Route::put('/admin/orders/{order}/dispatch', [OrderController::class, 'dispatch'])->middleware('role:ADMIN,MESERO')->name('admin.orders.dispatch');
+    Route::put('/admin/orders/{order}/cancel', [OrderController::class, 'cancel'])->middleware('role:ADMIN,MESERO')->name('admin.orders.cancel');
 
     Route::middleware('role:ADMIN')->group(function () {
         Route::get('/admin/orders/{order}/print', [PrintController::class, 'orderPack'])->name('admin.orders.print');
+        // Comanda de cancelación ("❌ PEDIDO #X CANCELADO — NO PREPARAR"): la genera caja.
+        Route::get('/admin/orders/{order}/cancellation-ticket', [PrintController::class, 'cancellationTicket'])->name('admin.orders.cancellation-ticket');
         // Registrar pagos (cobrar y cerrar la cuenta de mesa, pagos de PARA_LLEVAR y DOMICILIO): solo caja/ADMIN.
         Route::post('/admin/table-sessions/{tableSession}/pay', [PrintController::class, 'payTableSession'])->name('admin.accounts.pay');
         Route::post('/admin/orders/{order}/pay', [PrintController::class, 'payOrder'])->name('admin.orders.pay');
@@ -53,6 +60,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::middleware('role:ADMIN,MESERO')->group(function () {
         // Reimpresión de solo lectura: no cambia estado, sent_at, rondas ni historial.
         Route::get('/admin/orders/{order}/reprint', [PrintController::class, 'reprintOrder'])->name('admin.orders.reprint');
+        // Reimpresión de la comanda de cancelación (solo si caja ya la imprimió).
+        Route::get('/admin/orders/{order}/cancellation-ticket/reprint', [PrintController::class, 'reprintCancellationTicket'])->name('admin.orders.cancellation-ticket.reprint');
         Route::get('/admin/table-sessions/{tableSession}/account', [PrintController::class, 'account'])->name('admin.accounts.show');
         Route::get('/admin/table-sessions/{tableSession}/account/print', [PrintController::class, 'printAccount'])->name('admin.accounts.print');
     });

@@ -64,7 +64,7 @@ class OrderApiTest extends TestCase
 
     public function test_api_has_no_manual_deliver_step(): void
     {
-        // El paso manual "entregar" desapareció de la API: la impresión lleva a ENTREGADO.
+        // El paso manual "entregar" desapareció de la API: la impresión lleva a POR COBRAR.
         $waiter = $this->waiter(); $product = $this->product();
         $order = Order::create(['type' => OrderType::TAKEAWAY, 'status' => OrderStatus::PENDING, 'subtotal' => 18000, 'tax' => 0, 'total' => 18000]);
         $order->orderItems()->create(['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 18000, 'total' => 18000]);

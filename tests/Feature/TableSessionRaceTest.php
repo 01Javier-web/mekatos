@@ -251,7 +251,7 @@ class TableSessionRaceTest extends TestCase
         $this->paySessionWhenNextTransactionBegins($session);
 
         $this->actingAs($this->admin)
-            ->from(route('admin.orders.add', $order))
+            ->from(route('admin.orders.edit', $order))
             ->post(route('admin.orders.add.store', $order), ['items' => [$this->dish->id => 3]])
             ->assertSessionHasErrors(['order' => TableSessionLock::SESSION_CLOSED]);
 

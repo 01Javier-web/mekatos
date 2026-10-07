@@ -66,7 +66,7 @@ class AuditStageTwoTest extends TestCase
         $this->actingAs($admin)->post(route('admin.orders.store'), ['type' => OrderType::TAKEAWAY->value, 'items' => [$burger->id => 1]]);
         $order = Order::query()->firstOrFail();
 
-        $this->actingAs($admin)->get(route('admin.orders.add', $order))
+        $this->actingAs($admin)->get(route('admin.orders.edit', $order))
             ->assertOk()
             ->assertDontSee('<option value="LULO">', false);
 
@@ -85,7 +85,7 @@ class AuditStageTwoTest extends TestCase
 
     public function test_api_manual_deliver_step_no_longer_exists(): void
     {
-        // El paso manual "listo/entregado" desapareció: la impresión lleva a ENTREGADO.
+        // El paso manual "listo/entregado" desapareció: la impresión lleva a POR COBRAR.
         $waiter = $this->waiter();
         $table = $this->table(31, 'qr-31');
         $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
@@ -146,9 +146,9 @@ class AuditStageTwoTest extends TestCase
 
     // 7. Estado visible de la mesa
 
-    public function test_legacy_preparing_orders_are_shown_as_entregado(): void
+    public function test_legacy_preparing_orders_are_shown_as_por_cobrar(): void
     {
-        // EN PREPARACIÓN es un estado heredado: se muestra como su equivalente ENTREGADO.
+        // EN PREPARACIÓN es un estado heredado: se muestra como su equivalente POR COBRAR.
         $admin = $this->admin();
         $table = $this->table(32, 'qr-32');
         $session = TableSession::create(['restaurant_table_id' => $table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
@@ -157,7 +157,8 @@ class AuditStageTwoTest extends TestCase
 
         foreach ([route('waiter.orders'), route('admin.orders.index'), route('admin.dashboard')] as $url) {
             $html = $this->actingAs($admin)->get($url)->assertOk()->getContent();
-            $this->assertSame(2, substr_count($html, 'ENTREGADO</span>'), $url);
+            $this->assertSame(2, substr_count($html, 'POR COBRAR</span>'), $url);
+            $this->assertStringNotContainsString('ENTREGADO</span>', $html, $url);
             $this->assertStringNotContainsString('EN PREPARACIÓN</span>', $html, $url);
             $this->assertStringNotContainsString('ABIERTA</span>', $html, $url);
         }
@@ -171,15 +172,18 @@ class AuditStageTwoTest extends TestCase
 
     public function test_delivery_salio_records_who_and_when(): void
     {
-        // "🛵 Salió" (antes EN CAMINO) registra quién y cuándo. Funciona también sobre un
-        // domicilio heredado EN PREPARACIÓN (equivalente a ENTREGADO).
+        // "🛵 Salió" (antes EN CAMINO) es una marca: registra quién y cuándo sin cambiar el
+        // estado. Funciona también sobre un domicilio heredado EN PREPARACIÓN (equivale a POR COBRAR).
         $waiter = $this->waiter();
         $order = Order::create(['type' => OrderType::DELIVERY, 'status' => OrderStatus::PREPARING, 'subtotal' => 1000, 'delivery_fee' => 3000, 'tax' => 0, 'total' => 4000, 'customer_name' => 'Cliente', 'customer_phone' => '300', 'delivery_address' => 'Calle 1']);
 
         $this->actingAs($waiter)->put(route('admin.orders.dispatch', $order))->assertRedirect(route('waiter.orders'));
 
         $fresh = $order->fresh();
-        $this->assertSame(OrderStatus::TO_COLLECT, $fresh->status);
+        $this->assertSame(OrderStatus::PREPARING, $fresh->status, 'El estado guardado no cambia.');
+        $this->assertSame(OrderStatus::TO_COLLECT, $fresh->status->operational());
+        $this->assertSame($waiter->id, $fresh->dispatched_by_user_id);
+        $this->assertNotNull($fresh->dispatched_at);
         $this->assertSame($waiter->id, $fresh->delivered_by_user_id);
         $this->assertNotNull($fresh->delivered_at);
         $this->assertNull($fresh->paid_at);

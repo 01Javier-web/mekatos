@@ -3,48 +3,51 @@
 @section('content')
 <div class="page-shell page-shell-narrow">
     <div class="page-heading"><div><span class="eyebrow">Operación</span><h2>Pedido #{{ $order->id }}</h2><p>{{ $order->type?->value === 'PARA_LLEVAR' ? '🥡 Para llevar' : ($order->type?->value === 'DOMICILIO' ? '🛵 Domicilio' : '🪑 Mesa '.($order->tableSession?->restaurantTable?->number ?? '—')) }} · {{ $order->created_at?->format('d/m/Y H:i') }}</p></div><a class="button" href="{{ route('admin.orders.index') }}">← Volver a pedidos</a></div>
-    @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+    @if (session('success'))<div class="alert alert-success">{{ session('success') }}@if(session('cancel_ticket')) <a target="_blank" rel="noopener" href="{{ session('cancel_ticket') }}">🖨️ Imprimir comanda de cancelación</a>@endif</div>@endif
     @if ($errors->any())<div class="alert alert-error"><strong>No se pudo completar la acción.</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
     @php
-        // Estado operativo (los heredados EN PREPARACIÓN / EN CAMINO se muestran como ENTREGADO / POR COBRAR).
+        // Estado operativo (los heredados ENTREGADO / EN PREPARACIÓN / EN CAMINO se muestran como POR COBRAR).
         $operationalStatus = $order->status->operational();
-        $displayStatus = match($operationalStatus) {
-            \App\Enums\OrderStatus::PENDING, \App\Enums\OrderStatus::DELIVERED, \App\Enums\OrderStatus::TO_COLLECT => $operationalStatus->value,
-            default => 'TERMINADO',
-        };
-        $statusDescription = match($displayStatus) {
-            'PENDIENTE' => 'Esperando que caja imprima las comandas.',
-            'ENTREGADO' => 'Las comandas fueron impresas y el pedido fue entregado.',
-            'POR COBRAR' => 'Solo falta registrar el pago en caja.',
+        $displayStatus = $operationalStatus->value;
+        $statusDescription = match($operationalStatus) {
+            \App\Enums\OrderStatus::PENDING => 'Esperando que caja imprima las comandas.',
+            \App\Enums\OrderStatus::TO_COLLECT => 'Comandas impresas. Solo falta registrar el pago en caja.',
+            \App\Enums\OrderStatus::CANCELLED => 'Pedido cancelado: no se cobra ni cuenta como venta.',
             default => 'El pedido fue pagado y cerrado.',
         };
-        $progressStep = match($displayStatus) { 'PENDIENTE' => 1, 'ENTREGADO' => 2, 'POR COBRAR' => 3, default => 4 };
+        $progressStep = match($operationalStatus) { \App\Enums\OrderStatus::PENDING => 1, \App\Enums\OrderStatus::TO_COLLECT => 2, \App\Enums\OrderStatus::COMPLETED => 3, default => 0 };
+        $isDispatched = $order->type?->value === 'DOMICILIO' && $order->dispatched_at !== null;
+        $hasSentTicket = $order->hasSentKitchenTicket();
+        $hasPendingKitchen = $order->hasPendingKitchenChanges();
     @endphp
     <section class="order-status-banner status-banner-{{ strtolower(str_replace(' ','-',$displayStatus)) }}">
         <div><span class="eyebrow">Estado actual</span><strong>{{ $displayStatus }}</strong><small>{{ $statusDescription }}</small></div>
-        <div class="order-progress" aria-label="Progreso del pedido"><span class="{{ $progressStep >= 1 ? 'done' : '' }}">1</span><i></i><span class="{{ $progressStep >= 2 ? 'done' : '' }}">2</span><i></i><span class="{{ $progressStep >= 3 ? 'done' : '' }}">3</span><i></i><span class="{{ $progressStep >= 4 ? 'done' : '' }}">4</span></div>
+        <div class="order-progress" aria-label="Progreso del pedido"><span class="{{ $progressStep >= 1 ? 'done' : '' }}">1</span><i></i><span class="{{ $progressStep >= 2 ? 'done' : '' }}">2</span><i></i><span class="{{ $progressStep >= 3 ? 'done' : '' }}">3</span></div>
     </section>
     <div class="order-detail-grid">
         <section class="panel"><div class="panel-header"><h3>Acciones</h3><span>El pedido sigue el flujo operativo de Mekatos.</span></div><div class="detail-body actions-stack">
-            @if($order->orderItems->contains(fn ($item) => $item->sent_at === null))
-                <a class="button button-print-pending" target="_blank" rel="noopener" href="{{ route('admin.orders.print',$order) }}">🖨️ {{ $order->status === \App\Enums\OrderStatus::PENDING ? 'Imprimir comandas' : 'Imprimir adición' }}</a>
+            @if($order->status->isActive() && $hasPendingKitchen)
+                <a class="button button-print-pending" target="_blank" rel="noopener" href="{{ route('admin.orders.print',$order) }}">🖨️ {{ $order->kitchenPrintLabel() }}</a>
             @endif
-            @if($order->orderItems->contains(fn ($item) => $item->sent_at !== null))
+            @if($hasSentTicket)
                 <a class="button" target="_blank" rel="noopener" href="{{ route('admin.orders.reprint',$order) }}">🔁 Reimprimir última comanda</a>
             @endif
-            @if($order->status !== \App\Enums\OrderStatus::COMPLETED && (($order->type?->value === 'MESA' && $order->tableSession) || in_array($operationalStatus,[\App\Enums\OrderStatus::PENDING,\App\Enums\OrderStatus::DELIVERED],true) || ($order->type?->value === 'PARA_LLEVAR' && $operationalStatus === \App\Enums\OrderStatus::TO_COLLECT)))
-                <a class="button" href="{{ route('admin.orders.add',$order) }}">＋ Agregar al pedido</a>
+            @if($order->status->isActive() && ! $isDispatched && ($order->type?->value !== 'MESA' || $order->tableSession))
+                <a class="button" href="{{ route('admin.orders.edit',$order) }}">✏️ Editar pedido</a>
             @endif
-            @if($order->type?->value === 'MESA' && $order->tableSession && $order->status !== \App\Enums\OrderStatus::COMPLETED)
+            @if($order->type?->value === 'MESA' && $order->tableSession && $order->status->isActive())
                 <a class="button button-primary" href="{{ route('admin.accounts.show',$order->tableSession) }}">💰 Ver / cobrar cuenta</a>
             @elseif($order->status->isCollectable() && $order->type?->value === 'DOMICILIO')
-                @if($operationalStatus === \App\Enums\OrderStatus::DELIVERED)
+                @if(! $isDispatched)
                     <form method="POST" action="{{ route('admin.orders.dispatch',$order) }}">@csrf @method('PUT')<button class="button button-primary" type="submit">🛵 Salió</button></form>
                 @endif
                 <form method="POST" action="{{ route('admin.orders.pay',$order) }}" onsubmit="return confirm('¿Confirmas que el domicilio fue entregado y pagado?');">@csrf<button class="button button-primary" type="submit">💰 Confirmar entrega y pago</button></form>
             @elseif($order->status->isCollectable() && $order->type?->value === 'PARA_LLEVAR')
                 <form method="POST" action="{{ route('admin.orders.pay',$order) }}" onsubmit="return confirm('¿Confirmas que el pedido fue pagado?');">@csrf<button class="button button-primary" type="submit">💰 Registrar pago</button></form>
             @endif
+            @if($isDispatched)<p class="dispatched-mark">🛵 Salió el {{ $order->dispatched_at->format('d/m/Y H:i') }}{{ $order->dispatchedBy ? ' · '.$order->dispatchedBy->name : '' }}</p>@endif
+            @if($order->status->isActive())@include('orders.partials.cancel-order', ['order' => $order])@endif
+            @if($order->status === \App\Enums\OrderStatus::CANCELLED)<p class="muted">Pedido cancelado. Revisa el motivo en el historial.</p>@if($hasSentTicket)@if($order->statusHistories->contains(fn ($h) => $h->new_status === 'CANCELADO' && $h->notes === \App\Http\Controllers\Web\PrintController::CANCELLATION_TICKET_NOTE))<a class="button" target="_blank" rel="noopener" href="{{ route('admin.orders.cancellation-ticket.reprint',$order) }}">🔁 Reimprimir comanda de cancelación</a>@else<a class="button button-print-pending" target="_blank" rel="noopener" href="{{ route('admin.orders.cancellation-ticket',$order) }}">🖨️ Imprimir comanda de cancelación</a>@endif @endif @endif
             @if($order->status === \App\Enums\OrderStatus::COMPLETED)<p class="muted">Pedido terminado{{ $order->paid_at ? ' el '.$order->paid_at->format('d/m/Y H:i') : '' }}{{ $order->paidBy ? ' por '.$order->paidBy->name : '' }}.</p>@endif
             <div class="order-meta"><div><span>Creado por</span><strong>{{ $order->handledBy?->name ?? 'Pedido QR' }}</strong></div><div><span>Tipo</span><strong>{{ $order->type?->value === 'PARA_LLEVAR' ? 'Para llevar' : ($order->type?->value === 'DOMICILIO' ? 'Domicilio' : 'En mesa') }}</strong></div></div>
             @if ($order->delivered_at)<p class="muted">Entregado el {{ $order->delivered_at->format('d/m/Y H:i') }}{{ $order->deliveredBy ? ' por '.$order->deliveredBy->name : '' }}.</p>@endif
@@ -56,9 +59,9 @@
             <div class="totals"><div><span>Subtotal</span><strong>${{ number_format($order->subtotal,0,',','.') }}</strong></div>@if((int)$order->packaging_fee > 0)<div><span>Empaque para llevar</span><strong>${{ number_format($order->packaging_fee,0,',','.') }}</strong></div>@endif<div><span>Impuestos</span><strong>${{ number_format($order->tax,0,',','.') }}</strong></div><div class="total-row"><span>Total</span><strong>${{ number_format($order->total,0,',','.') }}</strong></div></div>
         </div></section>
     </div>
-    <section class="panel history-panel"><div class="panel-header"><h3>Historial de estados</h3><span>Seguimiento de preparación, entrega y pago.</span></div><div class="detail-body">@forelse($order->statusHistories as $history)<div class="history-item"><strong>{{ $history->new_status }}</strong><span>{{ $history->changed_at?->format('d/m/Y H:i') }}{{ $history->changedBy ? ' · '.$history->changedBy->name : '' }}</span></div>@empty<p class="muted">Sin historial disponible.</p>@endforelse</div></section>
+    <section class="panel history-panel"><div class="panel-header"><h3>Historial de estados</h3><span>Seguimiento de preparación, entrega y pago.</span></div><div class="detail-body">@forelse($order->statusHistories as $history)<div class="history-item"><div><strong>{{ $history->new_status }}</strong>@if($history->notes)<small class="history-note">{{ $history->notes }}</small>@endif</div><span>{{ $history->changed_at?->format('d/m/Y H:i') }}{{ $history->changedBy ? ' · '.$history->changedBy->name : '' }}</span></div>@empty<p class="muted">Sin historial disponible.</p>@endforelse</div></section>
 </div>
 <style>
-.order-status-banner{display:flex;align-items:center;justify-content:space-between;gap:25px;margin:-6px 0 20px;padding:17px 19px;border:1px solid #e5e5e2;border-radius:14px;background:#fff}.order-status-banner>div:first-child{min-width:0}.order-status-banner strong,.order-status-banner small{display:block}.order-status-banner strong{font-size:1.35rem;letter-spacing:-.03em}.order-status-banner small{margin-top:3px;color:#777}.status-banner-pendiente{border-color:#eadfbe;background:#fffdf6}.status-banner-en-preparación{border-color:#d8def5;background:#fafbff}.status-banner-entregado{border-color:#e1e1df}.status-banner-terminado{border-color:#cce3d3;background:#f9fdf9}.order-progress{display:flex;align-items:center;min-width:220px}.order-progress span{width:27px;height:27px;display:grid;place-items:center;border:1px solid #d8d8d5;border-radius:50%;background:#fff;color:#888;font-size:.7rem;font-weight:800}.order-progress span.done{background:#171717;border-color:#171717;color:#fff}.order-progress i{height:1px;flex:1;background:#ddd}.order-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0}.order-meta>div{padding:12px;border:1px solid #e7e7e4;border-radius:10px;background:#fafaf8}.order-meta span{display:block;color:#777;font-size:.74rem;margin-bottom:3px}.order-meta strong{font-size:.88rem}.item-note-display{display:block;margin-top:5px;color:#8a5a34;font-size:.75rem;font-weight:650;line-height:1.35}.actions-stack{display:flex;flex-direction:column;align-items:flex-start;gap:10px}.actions-stack form{margin:0}.actions-stack form+ .muted{margin-top:-3px}.button-print-pending{background:#bb2528!important;border-color:#bb2528!important;color:#fff!important}.button-print-pending:hover{background:#951d20!important;border-color:#951d20!important;color:#fff!important}@media(max-width:650px){.order-status-banner{align-items:flex-start;flex-direction:column}.order-progress{width:100%;min-width:0}.order-meta{grid-template-columns:1fr}.actions-stack{align-items:stretch}.actions-stack .button{width:100%}}
+.order-status-banner{display:flex;align-items:center;justify-content:space-between;gap:25px;margin:-6px 0 20px;padding:17px 19px;border:1px solid #e5e5e2;border-radius:14px;background:#fff}.order-status-banner>div:first-child{min-width:0}.order-status-banner strong,.order-status-banner small{display:block}.order-status-banner strong{font-size:1.35rem;letter-spacing:-.03em}.order-status-banner small{margin-top:3px;color:#777}.status-banner-pendiente{border-color:#eadfbe;background:#fffdf6}.status-banner-en-preparación{border-color:#d8def5;background:#fafbff}.status-banner-entregado{border-color:#e1e1df}.status-banner-terminado{border-color:#cce3d3;background:#f9fdf9}.status-banner-cancelado{border-color:#e3b0ad;background:#fff6f5}.history-note{display:block;margin-top:3px;color:#6f6254;font-size:.8rem;overflow-wrap:anywhere}.dispatched-mark{margin:0;padding:8px 10px;border-radius:9px;background:#eef6ff;color:#22507a;font-weight:750}.cancel-order{font-size:.88rem}.cancel-order summary{cursor:pointer;list-style:none;width:100%}.cancel-order summary::-webkit-details-marker{display:none}.cancel-order form{display:grid;gap:8px;margin-top:8px}.cancel-order label{display:grid;gap:5px;font-weight:700}.cancel-order textarea{width:100%;padding:8px;border:1px solid #d7c89e;border-radius:8px;background:#fffdf7;font:inherit}.order-progress{display:flex;align-items:center;min-width:220px}.order-progress span{width:27px;height:27px;display:grid;place-items:center;border:1px solid #d8d8d5;border-radius:50%;background:#fff;color:#888;font-size:.7rem;font-weight:800}.order-progress span.done{background:#171717;border-color:#171717;color:#fff}.order-progress i{height:1px;flex:1;background:#ddd}.order-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0}.order-meta>div{padding:12px;border:1px solid #e7e7e4;border-radius:10px;background:#fafaf8}.order-meta span{display:block;color:#777;font-size:.74rem;margin-bottom:3px}.order-meta strong{font-size:.88rem}.item-note-display{display:block;margin-top:5px;color:#8a5a34;font-size:.75rem;font-weight:650;line-height:1.35}.actions-stack{display:flex;flex-direction:column;align-items:flex-start;gap:10px}.actions-stack form{margin:0}.actions-stack form+ .muted{margin-top:-3px}.button-print-pending{background:#bb2528!important;border-color:#bb2528!important;color:#fff!important}.button-print-pending:hover{background:#951d20!important;border-color:#951d20!important;color:#fff!important}@media(max-width:650px){.order-status-banner{align-items:flex-start;flex-direction:column}.order-progress{width:100%;min-width:0}.order-meta{grid-template-columns:1fr}.actions-stack{align-items:stretch}.actions-stack .button{width:100%}}
 </style>
 @endsection

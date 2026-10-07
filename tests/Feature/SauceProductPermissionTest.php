@@ -181,7 +181,7 @@ class SauceProductPermissionTest extends TestCase
         }
 
         $this->create(OrderType::DELIVERY, ['items' => [$this->perro->id => 1]])->assertSessionHasNoErrors();
-        $add = $this->actingAs($this->waiter)->get(route('admin.orders.add', Order::firstOrFail()))->assertOk()->getContent();
+        $add = $this->actingAs($this->waiter)->get(route('admin.orders.edit', Order::firstOrFail()))->assertOk()->getContent();
         $this->assertStringContainsString('data-sauce-picker data-product-id="'.$this->perro->id.'"', $add);
         foreach ([$this->granizado, $this->gaseosa, $this->limonada] as $product) {
             $this->assertStringNotContainsString('data-product-id="'.$product->id.'"', $add, $product->name);

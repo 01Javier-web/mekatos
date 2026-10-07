@@ -75,7 +75,7 @@ class SalesReportController extends Controller
      */
     private const FINALIZED_STATUSES = [
         OrderStatus::COMPLETED->value,
-        OrderStatus::LEGACY_CANCELLED->value,
+        OrderStatus::CANCELLED->value,
     ];
 
     /**
@@ -125,6 +125,7 @@ class SalesReportController extends Controller
             'orders' => (clone $paidOrders)->count(),
             'items' => (float) DB::table('order_items')
                 ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                ->whereNull('order_items.voided_at')
                 ->where('orders.status', $completed)
                 ->whereNotNull('orders.paid_at')
                 ->where('orders.paid_at', '>=', $day)
@@ -140,6 +141,7 @@ class SalesReportController extends Controller
 
         $productSales = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereNull('order_items.voided_at') // Las líneas anuladas por una edición no son ventas.
             ->join('products', 'products.id', '=', 'order_items.product_id')
             ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
             ->where('orders.status', $completed)->whereNotNull('orders.paid_at')
@@ -150,6 +152,7 @@ class SalesReportController extends Controller
 
         $categorySales = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereNull('order_items.voided_at') // Las líneas anuladas por una edición no son ventas.
             ->join('products', 'products.id', '=', 'order_items.product_id')
             ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
             ->where('orders.status', $completed)->whereNotNull('orders.paid_at')

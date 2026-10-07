@@ -19,13 +19,13 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * Flujo de estados: PENDIENTE → ENTREGADO → POR COBRAR → TERMINADO.
- * - Imprimir comandas: PENDIENTE → ENTREGADO (registra quién imprimió).
- * - MESA: imprimir la cuenta → POR COBRAR.
- * - DOMICILIO: "🛵 Salió" → POR COBRAR.
- * - PARA_LLEVAR: queda ENTREGADO y disponible para cobro.
- * - Solo el ADMIN cobra, desde ENTREGADO o POR COBRAR (nunca PENDIENTE).
- * - EN PREPARACIÓN y EN CAMINO son heredados: se leen como ENTREGADO y POR COBRAR.
+ * Flujo de estados: PENDIENTE → POR COBRAR → TERMINADO (+ CANCELADO, ver OrderCancellationTest).
+ * - Imprimir comandas: PENDIENTE → POR COBRAR en los tres tipos (registra quién imprimió).
+ * - MESA: imprimir la cuenta no cambia el estado.
+ * - DOMICILIO: "🛵 Salió" es una marca (dispatched_at), no un estado.
+ * - Las adiciones devuelven el pedido a PENDIENTE hasta imprimirlas.
+ * - Solo el ADMIN cobra, desde POR COBRAR (nunca PENDIENTE).
+ * - ENTREGADO, EN PREPARACIÓN y EN CAMINO son heredados: se leen como POR COBRAR.
  */
 class OrderStatusFlowTest extends TestCase
 {
@@ -120,23 +120,26 @@ class OrderStatusFlowTest extends TestCase
             ->assertCreated()->assertJsonPath('order.status', 'PENDIENTE');
     }
 
-    // --- Imprimir: PENDIENTE → ENTREGADO ---
+    // --- Imprimir: PENDIENTE → POR COBRAR ---
 
-    public function test_printing_moves_pending_to_delivered_with_history_and_responsible(): void
+    public function test_printing_moves_pending_to_por_cobrar_in_every_type_without_entregado(): void
     {
-        // MESA y DOMICILIO quedan ENTREGADO al imprimir (PARA_LLEVAR sigue a POR COBRAR, ver abajo).
-        foreach ([OrderType::TABLE, OrderType::DELIVERY] as $type) {
+        foreach ([OrderType::TABLE, OrderType::TAKEAWAY, OrderType::DELIVERY] as $type) {
             $order = $this->createOrder($type);
             $this->print($order);
 
             $order->refresh();
-            $this->assertSame(OrderStatus::DELIVERED, $order->status, $type->value);
+            $this->assertSame(OrderStatus::TO_COLLECT, $order->status, $type->value);
             $this->assertSame($this->admin->id, $order->delivered_by_user_id);
             $this->assertNotNull($order->delivered_at);
+            $this->assertNull($order->dispatched_at);
             $this->assertSame(0, $order->orderItems()->whereNull('sent_at')->count(), 'sent_at se sigue marcando.');
-            $this->assertSame([[null, 'PENDIENTE'], ['PENDIENTE', 'ENTREGADO']], $this->history($order));
+            $this->assertSame([[null, 'PENDIENTE'], ['PENDIENTE', 'POR COBRAR']], $this->history($order), $type->value);
             $this->assertSame('Comandas impresas.', $order->statusHistories()->latest('id')->value('notes'));
         }
+
+        $this->assertSame(0, DB::table('order_status_histories')->where('new_status', 'ENTREGADO')->count());
+        $this->assertSame(0, Order::where('status', 'ENTREGADO')->count());
     }
 
     public function test_reprint_does_not_change_state_or_history(): void
@@ -156,7 +159,7 @@ class OrderStatusFlowTest extends TestCase
         }
     }
 
-    public function test_there_is_no_manual_preparing_or_ready_step_in_the_screens(): void
+    public function test_there_is_no_manual_preparing_ready_or_delivered_step_in_the_screens(): void
     {
         $this->createOrder(OrderType::TABLE);
         $this->print($takeaway = $this->createOrder(OrderType::TAKEAWAY));
@@ -168,7 +171,7 @@ class OrderStatusFlowTest extends TestCase
                     continue;
                 }
                 $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
-                foreach (['Marcar como listo', 'Marcar en camino', 'EN PREPARACIÓN', 'EN CAMINO', 'LISTO</', 'orders/'.$takeaway->id.'/deliver'] as $old) {
+                foreach (['Marcar como listo', 'Marcar en camino', 'EN PREPARACIÓN', 'EN CAMINO', 'ENTREGADO', 'Entregados', 'LISTO</', 'orders/'.$takeaway->id.'/deliver'] as $old) {
                     $this->assertStringNotContainsString($old, $html, "{$url}: {$old}");
                 }
             }
@@ -177,34 +180,28 @@ class OrderStatusFlowTest extends TestCase
 
     // --- MESA ---
 
-    public function test_table_flow_print_then_account_print_then_admin_pays(): void
+    public function test_table_flow_print_then_admin_pays_and_printing_the_account_does_not_change_states(): void
     {
         $first = $this->createOrder(OrderType::TABLE);
         $this->print($first);
-        $this->assertSame(OrderStatus::DELIVERED, $first->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $first->fresh()->status);
 
         // Segundo pedido de la misma mesa todavía sin imprimir.
         $second = $this->createOrder(OrderType::TABLE);
         $this->assertSame($first->table_session_id, $second->table_session_id);
 
-        // Imprimir la cuenta: solo los ENTREGADOS pasan a POR COBRAR; el PENDIENTE no se toca.
+        // Imprimir la cuenta no cambia estados ni historial.
+        $historyCount = DB::table('order_status_histories')->count();
         $this->printAccount($first);
         $this->assertSame(OrderStatus::TO_COLLECT, $first->fresh()->status);
         $this->assertSame(OrderStatus::PENDING, $second->fresh()->status);
-        $this->assertSame(['ENTREGADO', 'POR COBRAR'], $this->lastTransition($first));
-        $this->assertSame('Cuenta impresa.', $first->statusHistories()->latest('id')->value('notes'));
+        $this->assertSame($historyCount, DB::table('order_status_histories')->count());
 
         // Con un pedido PENDIENTE la cuenta no se puede cobrar.
         $this->actingAs($this->admin)->post(route('admin.accounts.pay', $first->table_session_id))->assertSessionHasErrors('status');
 
         $this->print($second);
-        $this->printAccount($second);
         $this->assertSame(OrderStatus::TO_COLLECT, $second->fresh()->status);
-
-        // Reimprimir la cuenta no vuelve a crear transiciones.
-        $historyCount = DB::table('order_status_histories')->count();
-        $this->printAccount($first);
-        $this->assertSame($historyCount, DB::table('order_status_histories')->count());
 
         // El mesero no puede cobrar; el ADMIN sí, desde POR COBRAR.
         $this->actingAs($this->waiter)->post(route('admin.accounts.pay', $first->table_session_id))->assertForbidden();
@@ -212,40 +209,30 @@ class OrderStatusFlowTest extends TestCase
 
         foreach ([$first, $second] as $order) {
             $this->assertSame(OrderStatus::COMPLETED, $order->fresh()->status);
-            $this->assertSame(['POR COBRAR', 'TERMINADO'], $this->lastTransition($order));
+            $this->assertSame([[null, 'PENDIENTE'], ['PENDIENTE', 'POR COBRAR'], ['POR COBRAR', 'TERMINADO']], $this->history($order));
         }
         $this->assertSame(TableSessionStatus::CLOSED, TableSession::find($first->table_session_id)->status);
         $this->assertSame(TableStatus::AVAILABLE, $this->table->fresh()->status);
     }
 
-    public function test_admin_can_also_pay_a_table_from_entregado_without_printing_the_account(): void
+    public function test_table_addition_goes_back_to_pending_and_printing_it_returns_to_por_cobrar(): void
     {
         $order = $this->createOrder(OrderType::TABLE);
         $this->print($order);
-
-        $this->actingAs($this->admin)->post(route('admin.accounts.pay', $order->table_session_id))->assertSessionHasNoErrors();
-
-        $this->assertSame(OrderStatus::COMPLETED, $order->fresh()->status);
-        $this->assertSame(['ENTREGADO', 'TERMINADO'], $this->lastTransition($order));
-    }
-
-    public function test_table_addition_goes_back_to_pending_and_printing_it_returns_to_entregado(): void
-    {
-        $order = $this->createOrder(OrderType::TABLE);
-        $this->print($order);
-        $this->printAccount($order);
         $this->assertSame(OrderStatus::TO_COLLECT, $order->fresh()->status);
 
         // La mesa sigue abierta: se puede agregar aunque esté POR COBRAR.
         $this->actingAs($this->waiter)->post(route('admin.orders.add.store', $order), ['items' => [$this->dish->id => 1]])->assertSessionHasNoErrors();
         $this->assertSame(OrderStatus::PENDING, $order->fresh()->status);
+        $this->assertSame(['POR COBRAR', 'PENDIENTE'], $this->lastTransition($order));
+
+        // Caja ve que hay algo pendiente de impresión.
+        $this->actingAs($this->admin)->getJson(route('admin.orders.pending'))->assertJsonPath('ids', [$order->id]);
 
         $this->print($order);
-        $this->assertSame(OrderStatus::DELIVERED, $order->fresh()->status);
-        $this->assertSame(['PENDIENTE', 'ENTREGADO'], $this->lastTransition($order));
-
-        $this->printAccount($order);
         $this->assertSame(OrderStatus::TO_COLLECT, $order->fresh()->status);
+        $this->assertSame(['PENDIENTE', 'POR COBRAR'], $this->lastTransition($order));
+        $this->assertSame('Nueva adición impresa.', $order->statusHistories()->latest('id')->value('notes'));
     }
 
     // --- PARA_LLEVAR ---
@@ -257,13 +244,11 @@ class OrderStatusFlowTest extends TestCase
         // PENDIENTE no se puede cobrar.
         $this->actingAs($this->admin)->post(route('admin.orders.pay', $order))->assertSessionHasErrors('status');
 
-        // La impresión del PARA_LLEVAR incluye su total: PENDIENTE → ENTREGADO → POR COBRAR, sin pasos manuales.
         $this->print($order);
         $fresh = $order->fresh();
         $this->assertSame(OrderStatus::TO_COLLECT, $fresh->status);
         $this->assertSame($this->admin->id, $fresh->delivered_by_user_id);
-        $this->assertSame([[null, 'PENDIENTE'], ['PENDIENTE', 'ENTREGADO'], ['ENTREGADO', 'POR COBRAR']], $this->history($order));
-        $this->assertSame(['Comandas impresas.', 'Pedido para llevar impreso con total.'], $order->statusHistories()->orderBy('id')->skip(1)->take(2)->pluck('notes')->all());
+        $this->assertSame([[null, 'PENDIENTE'], ['PENDIENTE', 'POR COBRAR']], $this->history($order));
 
         // Disponible para cobro: el ADMIN ve el botón; el mesero ve el mensaje de caja.
         $this->actingAs($this->admin)->get(route('waiter.orders'))->assertSee(route('admin.orders.pay', $order), false)->assertSee('💰 Registrar pago')->assertSee('POR COBRAR</span>', false);
@@ -274,7 +259,7 @@ class OrderStatusFlowTest extends TestCase
         $this->actingAs($this->admin)->post(route('admin.orders.pay', $order))->assertSessionHasNoErrors();
 
         $this->assertSame(OrderStatus::COMPLETED, $order->fresh()->status);
-        $this->assertSame([[null, 'PENDIENTE'], ['PENDIENTE', 'ENTREGADO'], ['ENTREGADO', 'POR COBRAR'], ['POR COBRAR', 'TERMINADO']], $this->history($order));
+        $this->assertSame([[null, 'PENDIENTE'], ['PENDIENTE', 'POR COBRAR'], ['POR COBRAR', 'TERMINADO']], $this->history($order));
     }
 
     public function test_takeaway_reprint_does_not_change_anything(): void
@@ -297,8 +282,8 @@ class OrderStatusFlowTest extends TestCase
         $this->assertSame(OrderStatus::TO_COLLECT, $order->fresh()->status);
 
         // Se sigue pudiendo agregar a un PARA_LLEVAR ya impreso (botón visible y adición aceptada).
-        $this->actingAs($this->waiter)->get(route('waiter.orders'))->assertSee(route('admin.orders.add', $order), false);
-        $this->actingAs($this->admin)->get(route('admin.orders.show', $order))->assertSee(route('admin.orders.add', $order), false);
+        $this->actingAs($this->waiter)->get(route('waiter.orders'))->assertSee(route('admin.orders.edit', $order), false);
+        $this->actingAs($this->admin)->get(route('admin.orders.show', $order))->assertSee(route('admin.orders.edit', $order), false);
         $this->actingAs($this->waiter)->post(route('admin.orders.add.store', $order), ['items' => [$this->granizado->id => 1]])->assertSessionHasNoErrors();
         $this->assertSame(OrderStatus::PENDING, $order->fresh()->status);
 
@@ -308,7 +293,7 @@ class OrderStatusFlowTest extends TestCase
         $this->print($order);
         $fresh = $order->fresh();
         $this->assertSame(OrderStatus::TO_COLLECT, $fresh->status);
-        $this->assertSame(['ENTREGADO', 'POR COBRAR'], $this->lastTransition($order));
+        $this->assertSame(['PENDIENTE', 'POR COBRAR'], $this->lastTransition($order));
         // Icopor y totales intactos: 2 granizados ($16.000) + 2 × $1.500.
         $this->assertSame(3000, (int) $fresh->packaging_fee);
         $this->assertSame(16000 + 3000, (int) $fresh->total);
@@ -316,40 +301,48 @@ class OrderStatusFlowTest extends TestCase
 
     // --- DOMICILIO ---
 
-    public function test_delivery_flow_print_then_salio_then_admin_pays(): void
+    public function test_delivery_flow_salio_is_a_mark_and_does_not_change_the_state(): void
     {
         $order = $this->createOrder(OrderType::DELIVERY, [$this->granizado->id => 2]);
 
-        // "Salió" exige que el domicilio ya esté impreso (ENTREGADO).
+        // "Salió" exige que el domicilio ya esté impreso (POR COBRAR).
         $this->salio($order)->assertSessionHasErrors('status');
-        $this->assertSame(OrderStatus::PENDING, $order->fresh()->status);
+        $this->assertNull($order->fresh()->dispatched_at);
 
         $this->print($order);
-        $this->assertSame(OrderStatus::DELIVERED, $order->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $order->fresh()->status);
         $this->actingAs($this->waiter)->get(route('waiter.orders'))->assertSee('🛵 Salió');
 
         $this->salio($order)->assertRedirect(route('waiter.orders'));
         $fresh = $order->fresh();
-        $this->assertSame(OrderStatus::TO_COLLECT, $fresh->status);
-        $this->assertSame($this->waiter->id, $fresh->delivered_by_user_id);
-        $this->assertSame('Domicilio salió.', $order->statusHistories()->latest('id')->value('notes'));
+        $this->assertSame(OrderStatus::TO_COLLECT, $fresh->status, '"Salió" no cambia el estado.');
+        $this->assertNotNull($fresh->dispatched_at);
+        $this->assertSame($this->waiter->id, $fresh->dispatched_by_user_id);
+        $this->assertSame($this->waiter->id, $fresh->delivered_by_user_id, 'Entregas por usuario: cuenta quien marcó "Salió".');
+        $this->assertSame(['POR COBRAR', 'POR COBRAR'], $this->lastTransition($order));
+        $this->assertSame('🛵 Domicilio salió.', $order->statusHistories()->latest('id')->value('notes'));
+
+        // La marca se ve en el mesero y en el detalle.
+        $this->actingAs($this->waiter)->get(route('waiter.orders'))->assertSee('🛵 Salió '.$fresh->dispatched_at->format('H:i'))->assertDontSee(route('admin.orders.dispatch', $order), false);
+        $this->actingAs($this->admin)->get(route('admin.orders.show', $order))->assertSee('🛵 Salió el')->assertSee('POR COBRAR');
 
         // Ya salió: no se puede volver a marcar ni agregar productos.
         $this->salio($order)->assertSessionHasErrors('status');
         $this->actingAs($this->waiter)->post(route('admin.orders.add.store', $order), ['items' => [$this->dish->id => 1]])->assertSessionHasErrors('order');
+        $this->actingAs($this->waiter)->get(route('waiter.orders'))->assertDontSee(route('admin.orders.edit', $order), false);
 
         $this->actingAs($this->waiter)->post(route('admin.orders.pay', $order))->assertForbidden();
         $this->actingAs($this->admin)->post(route('admin.orders.pay', $order))->assertSessionHasNoErrors();
 
         $fresh = $order->fresh();
         $this->assertSame(OrderStatus::COMPLETED, $fresh->status);
-        $this->assertSame([[null, 'PENDIENTE'], ['PENDIENTE', 'ENTREGADO'], ['ENTREGADO', 'POR COBRAR'], ['POR COBRAR', 'TERMINADO']], $this->history($order));
+        $this->assertSame([[null, 'PENDIENTE'], ['PENDIENTE', 'POR COBRAR'], ['POR COBRAR', 'POR COBRAR'], ['POR COBRAR', 'TERMINADO']], $this->history($order));
         // Icopor y totales sin cambios: 2 granizados ($16.000) + 2 × $1.500 + domicilio $3.000.
         $this->assertSame(3000, (int) $fresh->packaging_fee);
         $this->assertSame(16000 + 3000 + 3000, (int) $fresh->total);
     }
 
-    public function test_admin_can_pay_a_delivery_from_entregado_and_salio_only_applies_to_deliveries(): void
+    public function test_admin_can_pay_a_delivery_without_salio_and_salio_only_applies_to_deliveries(): void
     {
         $delivery = $this->createOrder(OrderType::DELIVERY);
         $this->print($delivery);
@@ -364,20 +357,7 @@ class OrderStatusFlowTest extends TestCase
         $this->assertSame(OrderStatus::TO_COLLECT, $takeaway->fresh()->status);
     }
 
-    public function test_table_and_delivery_stay_entregado_after_printing(): void
-    {
-        $table = $this->createOrder(OrderType::TABLE);
-        $delivery = $this->createOrder(OrderType::DELIVERY);
-        $this->print($table);
-        $this->print($delivery);
-
-        $this->assertSame(OrderStatus::DELIVERED, $table->fresh()->status);
-        $this->assertSame(OrderStatus::DELIVERED, $delivery->fresh()->status);
-        $this->assertSame(['PENDIENTE', 'ENTREGADO'], $this->lastTransition($table));
-        $this->assertSame(['PENDIENTE', 'ENTREGADO'], $this->lastTransition($delivery));
-    }
-
-    public function test_delivery_addition_before_salio_returns_to_pending_and_printing_returns_to_entregado(): void
+    public function test_delivery_addition_before_salio_returns_to_pending_and_printing_returns_to_por_cobrar(): void
     {
         $order = $this->createOrder(OrderType::DELIVERY);
         $this->print($order);
@@ -385,46 +365,57 @@ class OrderStatusFlowTest extends TestCase
         $this->actingAs($this->waiter)->post(route('admin.orders.add.store', $order), ['items' => [$this->dish->id => 1]])->assertSessionHasNoErrors();
         $this->assertSame(OrderStatus::PENDING, $order->fresh()->status);
 
+        // Mientras la adición esté PENDIENTE no puede salir.
+        $this->salio($order)->assertSessionHasErrors('status');
+
         $this->print($order);
-        $this->assertSame(OrderStatus::DELIVERED, $order->fresh()->status);
+        $this->assertSame(OrderStatus::TO_COLLECT, $order->fresh()->status);
+        $this->salio($order)->assertSessionHasNoErrors();
+        $this->assertSame(OrderStatus::TO_COLLECT, $order->fresh()->status);
     }
 
     // --- Estados heredados ---
 
-    public function test_legacy_preparing_and_in_transit_orders_can_still_be_collected(): void
+    public function test_legacy_states_are_read_as_por_cobrar_and_can_still_be_collected(): void
     {
+        $delivered = Order::create(['type' => OrderType::TAKEAWAY, 'status' => OrderStatus::DELIVERED, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
         $preparing = Order::create(['type' => OrderType::TAKEAWAY, 'status' => OrderStatus::PREPARING, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
         $inTransit = Order::create(['type' => OrderType::DELIVERY, 'status' => OrderStatus::IN_TRANSIT, 'subtotal' => 1000, 'delivery_fee' => 0, 'tax' => 0, 'total' => 1000, 'customer_name' => 'C', 'customer_phone' => '3', 'delivery_address' => 'D']);
         $session = TableSession::create(['restaurant_table_id' => $this->table->id, 'status' => TableSessionStatus::Active, 'started_at' => now()]);
-        $tableLegacy = Order::create(['table_session_id' => $session->id, 'type' => OrderType::TABLE, 'status' => OrderStatus::PREPARING, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
+        $tableLegacy = Order::create(['table_session_id' => $session->id, 'type' => OrderType::TABLE, 'status' => OrderStatus::DELIVERED, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
 
-        $this->assertSame(OrderStatus::DELIVERED, $preparing->status->operational());
-        $this->assertSame(OrderStatus::TO_COLLECT, $inTransit->status->operational());
+        foreach ([$delivered, $preparing, $inTransit, $tableLegacy] as $order) {
+            $this->assertSame(OrderStatus::TO_COLLECT, $order->status->operational());
+            // La lectura del pedido no se rompe.
+            $this->actingAs($this->admin)->get(route('admin.orders.show', $order))->assertOk()->assertSee('POR COBRAR');
+        }
+        $this->actingAs($this->waiter)->get(route('waiter.orders'))->assertOk();
+        $this->actingAs($this->waiter)->get(route('admin.accounts.show', $session))->assertOk()->assertSee('POR COBRAR');
 
-        // La cuenta de la mesa heredada pasa a POR COBRAR al imprimirla.
-        $this->printAccount($tableLegacy);
-        $this->assertSame(OrderStatus::TO_COLLECT, $tableLegacy->fresh()->status);
-
+        $this->actingAs($this->admin)->post(route('admin.orders.pay', $delivered))->assertSessionHasNoErrors();
         $this->actingAs($this->admin)->post(route('admin.orders.pay', $preparing))->assertSessionHasNoErrors();
         $this->actingAs($this->admin)->post(route('admin.orders.pay', $inTransit))->assertSessionHasNoErrors();
         $this->actingAs($this->admin)->post(route('admin.accounts.pay', $session))->assertSessionHasNoErrors();
 
-        foreach ([$preparing, $inTransit, $tableLegacy] as $order) {
+        foreach ([$delivered, $preparing, $inTransit, $tableLegacy] as $order) {
             $this->assertSame(OrderStatus::COMPLETED, $order->fresh()->status);
         }
         $this->assertSame(['EN PREPARACIÓN', 'TERMINADO'], $this->lastTransition($preparing));
         $this->assertSame(['EN CAMINO', 'TERMINADO'], $this->lastTransition($inTransit));
     }
 
-    public function test_legacy_orders_are_listed_under_their_operational_filter(): void
+    public function test_legacy_orders_are_listed_under_por_cobrar(): void
     {
         Order::create(['type' => OrderType::TAKEAWAY, 'status' => OrderStatus::PREPARING, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
         Order::create(['type' => OrderType::DELIVERY, 'status' => OrderStatus::IN_TRANSIT, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
+        Order::create(['type' => OrderType::TAKEAWAY, 'status' => OrderStatus::DELIVERED, 'subtotal' => 1000, 'tax' => 0, 'total' => 1000]);
 
-        $this->actingAs($this->admin)->get(route('admin.orders.index', ['status' => 'ENTREGADO']))->assertOk()->assertViewHas('orders', fn ($orders) => $orders->count() === 1);
-        $this->actingAs($this->admin)->get(route('admin.orders.index', ['status' => 'POR COBRAR']))->assertOk()->assertViewHas('orders', fn ($orders) => $orders->count() === 1);
-        $this->actingAs($this->admin)->get(route('admin.dashboard'))->assertOk()->assertViewHas('deliveredOrders', 1)->assertViewHas('toCollectOrders', 1);
-        $this->actingAs($this->waiter)->get(route('waiter.orders'))->assertOk()->assertViewHas('counts', fn ($c) => $c['delivered'] === 1 && $c['to_collect'] === 1);
+        $this->actingAs($this->admin)->get(route('admin.orders.index', ['status' => 'POR COBRAR']))->assertOk()->assertViewHas('orders', fn ($orders) => $orders->count() === 3);
+        $this->actingAs($this->admin)->get(route('admin.orders.index'))->assertOk()->assertViewHas('orders', fn ($orders) => $orders->count() === 3);
+        $this->actingAs($this->admin)->get(route('admin.dashboard'))->assertOk()->assertViewHas('toCollectOrders', 3)->assertViewMissing('deliveredOrders');
+        $this->actingAs($this->waiter)->get(route('waiter.orders'))->assertOk()->assertViewHas('counts', fn ($c) => $c['to_collect'] === 3 && ! isset($c['delivered']));
+        // Los estados heredados no se ofrecen como opción.
+        $this->assertSame([OrderStatus::PENDING, OrderStatus::TO_COLLECT, OrderStatus::COMPLETED, OrderStatus::CANCELLED], OrderStatus::operationalCases());
     }
 
     // --- Reportes y cierre del día ---
@@ -448,7 +439,8 @@ class OrderStatusFlowTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.reports.daily'))->assertOk()
             ->assertViewHas('summary', fn ($s) => $s['orders'] === 2 && (int) $s['revenue'] === 20000 + 23000)
             // Entregas por usuario: la mesa la entregó quien imprimió (ADMIN) y el domicilio quien marcó "Salió" (mesero).
-            ->assertViewHas('deliveryStats', fn ($stats) => $stats->pluck('delivered_count', 'name')->sum() === 2);
+            ->assertViewHas('deliveryStats', fn ($stats) => $stats->pluck('delivered_count', 'name')->all() === [$this->admin->name => 1, $this->waiter->name => 1]
+                || $stats->pluck('delivered_count', 'name')->all() === [$this->waiter->name => 1, $this->admin->name => 1]);
 
         $this->actingAs($this->admin)->post(route('admin.reports.daily.close'))->assertOk()->assertSessionHasNoErrors();
         $this->assertDatabaseCount('orders', 0);

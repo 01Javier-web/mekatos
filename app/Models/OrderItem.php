@@ -17,7 +17,27 @@ class OrderItem extends Model
         'notes',
         'sent_at',
         'paired_order_item_id',
+        'voided_at',
+        'voided_by_user_id',
+        'voided_round_id',
+        'void_sent_at',
     ];
+
+    protected $casts = [
+        'voided_at' => 'datetime',
+    ];
+
+    /** ¿Anulada por una edición del pedido? (no cuenta en totales, cuenta ni ventas). */
+    public function isVoided(): bool
+    {
+        return $this->voided_at !== null;
+    }
+
+    /** Edición (ronda) en la que se anuló la línea. */
+    public function voidedRound(): BelongsTo
+    {
+        return $this->belongsTo(OrderRound::class, 'voided_round_id');
+    }
 
     public function order(): BelongsTo
     {
