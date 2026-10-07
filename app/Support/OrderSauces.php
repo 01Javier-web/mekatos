@@ -87,6 +87,21 @@ class OrderSauces
     }
 
     /**
+     * Salsas de una unidad concreta (mismo criterio que unitGroups): en "Todos iguales" las
+     * del producto; en "Personalizar individualmente" las de esa unidad.
+     *
+     * @return array<int, string>
+     */
+    public static function unitSauces(array $validated, int $productId, int $unit): array
+    {
+        if (($validated['sauce_mode'][$productId] ?? self::MODE_SAME) !== self::MODE_EACH) {
+            return self::selected($validated['sauces'][$productId] ?? []);
+        }
+
+        return self::selected($validated['unit_sauces'][$productId][$unit] ?? []);
+    }
+
+    /**
      * Rechaza salsas enviadas para productos que no están en el pedido o que no admiten salsas.
      *
      * @param  array<int|string, int>  $items  product_id => cantidad

@@ -18,6 +18,7 @@ use App\Support\BeverageOptions;
 use App\Support\ComboOptions;
 use App\Support\JuiceOptions;
 use App\Support\OrderSauces;
+use App\Support\OrderUnitOptions;
 use App\Support\TableSessionLock;
 use App\Support\TakeawayPackaging;
 use App\TableSessionStatus;
@@ -66,7 +67,7 @@ class OrderController extends Controller
             'combo_beverage_flavor'=>['nullable','array'],
             'combo_beverage_flavor.*'=>['nullable','string','max:100'],
             'notes'=>['nullable','string','max:2000'],
-        ]+OrderSauces::rules());
+        ]+OrderSauces::rules()+OrderUnitOptions::rules());
         $v['items']=array_filter($v['items'],static fn($q)=>(int)$q!==0);
         $v['items']=validator(['items'=>$v['items']],['items'=>['required','array','min:1'],'items.*'=>['required','integer','min:1','max:99']])->validate()['items'];
         $type=OrderType::from($v['type']);
@@ -106,40 +107,17 @@ class OrderController extends Controller
                 if(!$p->is_available)throw ValidationException::withMessages(['items'=>["El producto '{$p->name}' no está disponible."]]);
                 if(!$p->category?->is_active)throw ValidationException::withMessages(['items'=>["El producto '{$p->name}' pertenece a una categoría deshabilitada."]]);
                 $quantity=(int)$quantity;
-                $price=(int)$p->price;
-                $notes=$v['item_notes'][$productId]??null;
-
-                if(JuiceOptions::isJuice($p)){
-                    $prep=$v['juice_preparation'][$productId]??null;
-                    $fruit=$v['juice_fruit'][$productId]??null;
-                    $other=$v['juice_other_fruit'][$productId]??null;
-                    $details=$notes;
-                    if($fruit===JuiceOptions::OTHER&&trim((string)$other)===''){$other=$details;$details=null;}
-                    $price=JuiceOptions::price($prep);
-                    $notes=JuiceOptions::buildNote($prep,$fruit,$other,$details);
-                }elseif(BeverageOptions::hasOptions($p)){
-                    $notes=BeverageOptions::buildNote($p,$v['beverage_option'][$productId]??null,$notes);
-                }elseif(!empty($v['beverage_option'][$productId])){
-                    throw ValidationException::withMessages(['items'=>["El producto '{$p->name}' no admite una opción de bebida."]]);
-                }
-
-                $combo=ComboOptions::validate($p,$v['combo'][$productId]??ComboOptions::NO,$v['combo_beverage_type'][$productId]??null,$v['combo_beverage_flavor'][$productId]??null);
-                if($combo['combo']===ComboOptions::YES){
-                    $price+=ComboOptions::PRICE;
-                    $comboNote=ComboOptions::buildNote($combo);
-                    $notes=trim(implode(' · ',array_filter([$comboNote,$notes])));
-                }
-
-                $line=$price*$quantity;
-                $packagingFee+=TakeawayPackaging::fee($p,$quantity,$type->value);
-                // Una línea por configuración de salsas: con "Todos iguales" (o sin salsas) queda
-                // una sola línea ×N, igual que antes; las unidades personalizadas distintas se separan.
-                foreach(OrderSauces::unitGroups($quantity,$v,(int)$productId) as $group){
-                    $item=OrderItem::create(['order_id'=>$order->id,'order_round_id'=>$round->id,'product_id'=>$p->id,'quantity'=>$group['quantity'],'unit_price'=>$price,'total'=>$price*$group['quantity'],'notes'=>$notes,'sent_at'=>null]);
+                // Una línea por configuración (opciones del producto + nota + precio + salsas): con
+                // "Todos iguales" queda una sola línea ×N, igual que antes; las unidades personalizadas
+                // distintas se separan y las idénticas se agrupan.
+                foreach(OrderUnitOptions::groups($p,$quantity,$v,(int)$productId) as $group){
+                    $item=OrderItem::create(['order_id'=>$order->id,'order_round_id'=>$round->id,'product_id'=>$p->id,'quantity'=>$group['quantity'],'unit_price'=>$group['price'],'total'=>$group['price']*$group['quantity'],'notes'=>$group['notes'],'sent_at'=>null]);
                     $createdItems[$p->id][]=$item;
                     $lineSauces[]=[$item,$group['sauces']];
+                    $subtotal+=$group['price']*$group['quantity'];
                 }
-                $subtotal+=$line;
+                // Icopor por la cantidad total del producto, aunque quede en varias líneas.
+                $packagingFee+=TakeawayPackaging::fee($p,$quantity,$type->value);
             }
 
             $this->applyPortionPairings($order, $v['portion_pairing'] ?? [], $createdItems);
@@ -248,7 +226,7 @@ class OrderController extends Controller
             'combo_beverage_type.*' => ['nullable', Rule::in(array_keys(ComboOptions::types()))],
             'combo_beverage_flavor' => ['nullable', 'array'],
             'combo_beverage_flavor.*' => ['nullable', 'string', 'max:100'],
-        ] + OrderSauces::rules());
+        ] + OrderSauces::rules() + OrderUnitOptions::rules());
 
         $v['items'] = array_filter($v['items'] ?? [], static fn ($q) => (int) $q !== 0);
         $v['items'] = validator(
@@ -489,59 +467,25 @@ class OrderController extends Controller
             }
 
             $quantity = (int) $quantity;
-            $price = (int) $p->price;
-            $notes = $v['item_notes'][$productId] ?? null;
 
-            if (JuiceOptions::isJuice($p)) {
-                $prep = $v['juice_preparation'][$productId] ?? null;
-                $fruit = $v['juice_fruit'][$productId] ?? null;
-                $other = $v['juice_other_fruit'][$productId] ?? null;
-                $details = $notes;
-
-                if ($fruit === JuiceOptions::OTHER && trim((string) $other) === '') {
-                    $other = $details;
-                    $details = null;
-                }
-
-                $price = JuiceOptions::price($prep);
-                $notes = JuiceOptions::buildNote($prep, $fruit, $other, $details);
-            } elseif (BeverageOptions::hasOptions($p)) {
-                $notes = BeverageOptions::buildNote($p, $v['beverage_option'][$productId] ?? null, $notes);
-            } elseif (! empty($v['beverage_option'][$productId])) {
-                throw ValidationException::withMessages([
-                    'items' => ["El producto '{$p->name}' no admite una opción de bebida."],
-                ]);
-            }
-
-            $combo = ComboOptions::validate(
-                $p,
-                $v['combo'][$productId] ?? ComboOptions::NO,
-                $v['combo_beverage_type'][$productId] ?? null,
-                $v['combo_beverage_flavor'][$productId] ?? null
-            );
-
-            if ($combo['combo'] === ComboOptions::YES) {
-                $price += ComboOptions::PRICE;
-                $comboNote = ComboOptions::buildNote($combo);
-                $notes = trim(implode(' · ', array_filter([$comboNote, $notes])));
-            }
-
-            // Una línea por configuración de salsas (ver OrderSauces::unitGroups).
-            foreach (OrderSauces::unitGroups($quantity, $v, (int) $productId) as $group) {
+            // Una línea por configuración (opciones del producto + nota + precio + salsas; ver
+            // OrderUnitOptions::groups): "Todos iguales" deja una sola línea ×N, como antes.
+            foreach (OrderUnitOptions::groups($p, $quantity, $v, (int) $productId) as $group) {
                 $item = OrderItem::create([
                     'order_id' => $order->id,
                     'order_round_id' => $round->id,
                     'product_id' => $p->id,
                     'quantity' => $group['quantity'],
-                    'unit_price' => $price,
-                    'total' => $price * $group['quantity'],
-                    'notes' => $notes,
+                    'unit_price' => $group['price'],
+                    'total' => $group['price'] * $group['quantity'],
+                    'notes' => $group['notes'],
                     'sent_at' => null,
                 ]);
                 $createdItems[$p->id][] = $item;
                 $added[] = $item->setRelation('product', $p);
                 $lineSauces[] = [$item, $group['sauces']];
             }
+            // Icopor por la cantidad total del producto, aunque quede en varias líneas.
             $additionPackagingFee += TakeawayPackaging::fee($p, $quantity, $order->type->value);
         }
 
